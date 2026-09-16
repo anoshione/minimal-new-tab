@@ -1,3 +1,5 @@
+import { initBookmarkItem, getBookmarkColor } from './bookmark-editor.js';
+
 const BOOKMARK_FOLDER_STATE_KEY = 'bookmark-folders-state';
 
 function getFolderStates() {
@@ -31,7 +33,7 @@ function updateFolderState(folderButton, chevron, childrenList, isOpen) {
     }
 }
 
-function processBookmarks(settings, nodes, container, level = 0, path = "") {
+function processBookmarks(settings, nodes, container, level = 0, path = "", inheritedFolderColor = null) {
     const savedStates = getFolderStates();
 
     nodes.forEach(node => {
@@ -41,6 +43,9 @@ function processBookmarks(settings, nodes, container, level = 0, path = "") {
         if (node.children && node.children.length > 0) {
             const listItem = document.createElement('li');
             listItem.className = 'bookmark-folder-item';
+            if (node.id) {
+                listItem.dataset.bookmarkId = node.id;
+            }
 
             const folderButton = document.createElement('button');
             folderButton.type = 'button';
@@ -76,15 +81,21 @@ function processBookmarks(settings, nodes, container, level = 0, path = "") {
                 requestAnimationFrame(() => distributeColumns());
             });
 
+            // Initialize editor & colors for folder
+            const folderColor = getBookmarkColor(node.id) || inheritedFolderColor;
+            initBookmarkItem(folderButton, node, true, inheritedFolderColor);
 
             listItem.appendChild(folderButton);
             listItem.appendChild(childrenList);
             container.appendChild(listItem);
 
-            processBookmarks(settings, node.children, childrenList, level + 1, currentPath);
+            processBookmarks(settings, node.children, childrenList, level + 1, currentPath, folderColor);
         } else if (node.url) {
             const listItem = document.createElement('li');
             listItem.className = 'bookmark-link-item';
+            if (node.id) {
+                listItem.dataset.bookmarkId = node.id;
+            }
 
             const a = document.createElement('a');
             a.href = node.url;
@@ -92,6 +103,9 @@ function processBookmarks(settings, nodes, container, level = 0, path = "") {
             const text = document.createElement('span');
             text.textContent = node.title || node.url;
             a.appendChild(text);
+
+            // Initialize editor & colors for bookmark link
+            initBookmarkItem(a, node, false, inheritedFolderColor);
 
             listItem.appendChild(a);
             container.appendChild(listItem);
@@ -233,59 +247,91 @@ function distributeColumns() {
     updateWrapperClasses(numCols);
 }
 
+function renderBookmarksTree(tree, settings, shortcuts) {
+    const existingInput = document.getElementById('quick-command-input');
+
+    let bookmarksBar = settings.bookmarkFolder?.trim()
+        ? tree[0].children.find(f => f.title.toLowerCase() === settings.bookmarkFolder.toLowerCase())
+        : tree[0].children[0];
+
+    if (settings.bookmarkFolder?.trim() && !bookmarksBar) {
+        shortcuts.innerHTML = "Bookmark folder not found.";
+        return;
+    }
+
+    shortcuts.innerHTML = '';
+
+    if (existingInput) {
+        shortcuts.appendChild(existingInput);
+    }
+
+    const columnsWrapper = document.createElement('div');
+    columnsWrapper.className = 'bookmark-columns-wrapper is-single-column';
+
+    const col1 = document.createElement('ul');
+    col1.className = 'bookmark-list col-1';
+
+    const col2 = document.createElement('ul');
+    col2.className = 'bookmark-list col-2';
+
+    const col3 = document.createElement('ul');
+    col3.className = 'bookmark-list col-3';
+
+    columnsWrapper.appendChild(col1);
+    columnsWrapper.appendChild(col2);
+    columnsWrapper.appendChild(col3);
+
+    processBookmarks(
+        settings,
+        settings.bookmarkFolder?.trim() ? bookmarksBar.children : tree[0].children,
+        col1
+    );
+
+    shortcuts.appendChild(columnsWrapper);
+
+    requestAnimationFrame(() => {
+        distributeColumns();
+    });
+}
+
 function renderBookmarks(settings) {
     const shortcuts = document.getElementById('shortcuts');
     if (!shortcuts) return;
 
     if (typeof chrome === "undefined" || !chrome.bookmarks || !chrome.bookmarks.getTree) {
+        const mockTree = [
+            {
+                id: "0",
+                title: "root",
+                children: [
+                    {
+                        id: "1",
+                        title: "Bookmarks Bar",
+                        children: [
+                            { id: "101", title: "GitHub", url: "https://github.com" },
+                            { id: "102", title: "YouTube", url: "https://youtube.com" },
+                            { id: "103", title: "Twitter", url: "https://twitter.com" },
+                            { id: "104", title: "Reddit", url: "https://reddit.com" },
+                            { id: "105", title: "Spotify", url: "https://spotify.com" },
+                            {
+                                id: "200",
+                                title: "Work",
+                                children: [
+                                    { id: "201", title: "Google Docs", url: "https://docs.google.com" },
+                                    { id: "202", title: "Figma", url: "https://figma.com" }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ];
+        renderBookmarksTree(mockTree, settings, shortcuts);
         return;
     }
 
     chrome.bookmarks.getTree(tree => {
-        const existingInput = document.getElementById('quick-command-input');
-
-        let bookmarksBar = settings.bookmarkFolder?.trim()
-            ? tree[0].children.find(f => f.title.toLowerCase() === settings.bookmarkFolder.toLowerCase())
-            : tree[0].children[0];
-
-        if (settings.bookmarkFolder?.trim() && !bookmarksBar) {
-            shortcuts.innerHTML = "Bookmark folder not found.";
-            return;
-        }
-
-        shortcuts.innerHTML = '';
-
-        if (existingInput) {
-            shortcuts.appendChild(existingInput);
-        }
-
-        const columnsWrapper = document.createElement('div');
-        columnsWrapper.className = 'bookmark-columns-wrapper is-single-column';
-
-        const col1 = document.createElement('ul');
-        col1.className = 'bookmark-list col-1';
-
-        const col2 = document.createElement('ul');
-        col2.className = 'bookmark-list col-2';
-
-        const col3 = document.createElement('ul');
-        col3.className = 'bookmark-list col-3';
-
-        columnsWrapper.appendChild(col1);
-        columnsWrapper.appendChild(col2);
-        columnsWrapper.appendChild(col3);
-
-        processBookmarks(
-            settings,
-            settings.bookmarkFolder?.trim() ? bookmarksBar.children : tree[0].children,
-            col1
-        );
-
-        shortcuts.appendChild(columnsWrapper);
-
-        requestAnimationFrame(() => {
-            distributeColumns();
-        });
+        renderBookmarksTree(tree, settings, shortcuts);
     });
 }
 

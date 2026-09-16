@@ -19,21 +19,32 @@ export function fuzzyMatch(text, query) {
 
 export function flattenBookmarks(nodes, path = []) {
   const results = [];
+  let bookmarkColors = {};
+  try {
+    bookmarkColors = JSON.parse(localStorage.getItem('bookmark-colors') || '{}');
+  } catch {}
 
-  nodes.forEach((node) => {
-    if (node.children && node.children.length > 0) {
-      const newPath = [...path, node.title || "Untitled"];
-      results.push(...flattenBookmarks(node.children, newPath));
-    } else if (node.url) {
-      const fullPath = path.length > 0 ? path.join(" > ") : null;
-      results.push({
-        title: node.title || node.url,
-        url: node.url,
-        path: fullPath,
-      });
-    }
-  });
+  function traverse(currentNodes, currentPath, inheritedColor) {
+    currentNodes.forEach((node) => {
+      const ownColor = bookmarkColors[node.id] || null;
+      const effectiveColor = ownColor || inheritedColor;
+      if (node.children && node.children.length > 0) {
+        const newPath = [...currentPath, node.title || "Untitled"];
+        traverse(node.children, newPath, effectiveColor);
+      } else if (node.url) {
+        const fullPath = currentPath.length > 0 ? currentPath.join(" > ") : null;
+        results.push({
+          id: node.id,
+          title: node.title || node.url,
+          url: node.url,
+          path: fullPath,
+          color: effectiveColor,
+        });
+      }
+    });
+  }
 
+  traverse(nodes, path, null);
   return results;
 }
 
@@ -168,6 +179,10 @@ export function renderSearchResults(query, bangInfo) {
       const titleSpan = document.createElement("span");
       titleSpan.className = "title";
       titleSpan.textContent = result.title;
+      if (result.color) {
+        titleSpan.style.color = result.color;
+        titleSpan.style.textDecorationColor = result.color;
+      }
       contentSpan.appendChild(titleSpan);
       a.appendChild(contentSpan);
 
