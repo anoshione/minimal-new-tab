@@ -1032,7 +1032,20 @@ document.getElementById("export-settings").addEventListener("click", () => {
   const storedSettings = JSON.parse(localStorage.getItem("settings") || "{}");
   // Merge with defaults to ensure all keys are included in export
   const settings = { ...defaultSettings, ...storedSettings };
-  const dataStr = JSON.stringify(settings, null, 2);
+
+  // Also preserve custom bookmark colors, todo list, and theme
+  const bookmarkColors = JSON.parse(localStorage.getItem("bookmark-colors") || "{}");
+  const todoList = JSON.parse(localStorage.getItem("sidebar-todo-list") || "[]");
+  const theme = localStorage.getItem("theme") || "system";
+
+  const exportPayload = {
+    ...settings,
+    _bookmarkColors: bookmarkColors,
+    _todoList: todoList,
+    _theme: theme,
+  };
+
+  const dataStr = JSON.stringify(exportPayload, null, 2);
   const blob = new Blob([dataStr], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -1119,6 +1132,17 @@ function handleImportFile(file) {
           "error",
         );
         return;
+      }
+
+      // Restore custom bookmark colors, todo list, and theme if present
+      if (importedSettings._bookmarkColors && typeof importedSettings._bookmarkColors === "object") {
+        localStorage.setItem("bookmark-colors", JSON.stringify(importedSettings._bookmarkColors));
+      }
+      if (importedSettings._todoList && Array.isArray(importedSettings._todoList)) {
+        localStorage.setItem("sidebar-todo-list", JSON.stringify(importedSettings._todoList));
+      }
+      if (importedSettings._theme && typeof importedSettings._theme === "string") {
+        localStorage.setItem("theme", importedSettings._theme);
       }
 
       // Merge with default settings to ensure all keys exist

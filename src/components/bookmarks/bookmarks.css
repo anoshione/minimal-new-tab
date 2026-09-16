@@ -126,9 +126,9 @@ body.light .bookmark-columns-wrapper {
     text-overflow: ellipsis;
     text-decoration-color: inherit;
     text-align: left;
-    flex: 1;
+    flex: 0 1 auto;
     min-width: 0;
-    max-width: 100%;
+    max-width: 15ch;
 }
 
 .bookmark-children .shortcut {
@@ -138,7 +138,8 @@ body.light .bookmark-columns-wrapper {
 
 .bookmark-children .shortcut > span:not(.number-hint) {
     text-align: left;
-    flex: 1;
+    flex: 0 1 auto;
+    max-width: 15ch;
 }
 
 .shortcut > .number-hint {
@@ -241,10 +242,12 @@ body.light .bookmark-folder.open::after {
 }
 
 .bookmark-folder span:last-child {
-    flex: 1;
+    flex: 0 1 auto;
     min-width: 0;
-    word-break: break-word;
-    overflow-wrap: anywhere;
+    max-width: 15ch;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .bookmark-folder:hover::before,
