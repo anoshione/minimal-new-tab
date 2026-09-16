@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "Minimal New Tab",
+  "description": "A minimal, new tab page with clock, weather, and bookmarks with theme support",
+  "version": "1.5.1",
+  "chrome_url_overrides": {
+    "newtab": "pages/newtab/index.html"
+  },
+  "options_page": "pages/options/options.html",
+  "permissions": ["bookmarks", "geolocation", "commands", "history"],
+  "background": {
+    "service_worker": "pages/background.js"
+  },
+  "commands": {
+    "toggle-overlay": {
+      "suggested_key": {
+        "default": "Alt+K",
+        "mac": "Option+K"
+      },
+      "description": "Toggle overlay"
+    },
+    "open-options": {
+      "suggested_key": {
+        "default": "Alt+Comma",
+        "mac": "Option+Comma"
+      },
+      "description": "Open options page"
+    }
+  },
+  "icons": {
+    "16": "assets/favicons/favicon-16x16.png",
+    "32": "assets/favicons/favicon-32x32.png",
+    "48": "assets/favicons/favicon-48x48.png",
+    "128": "assets/favicons/favicon-128x128.png"
+  }
+}
