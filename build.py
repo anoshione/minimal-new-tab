@@ -60,7 +60,14 @@ class BuildAsset:
         try:
             if self.is_dir:
                 if dst.exists():
-                    shutil.rmtree(dst)
+                    def _handle_remove_readonly(func, path, exc_info):
+                        import os, stat
+                        try:
+                            os.chmod(path, stat.S_IWRITE)
+                            func(path)
+                        except Exception:
+                            pass
+                    shutil.rmtree(dst, onerror=_handle_remove_readonly)
 
                 if self.minify:
                     self._copy_dir_with_minify(self.src, dst, log_fn)
@@ -170,6 +177,7 @@ def get_build_configs() -> Dict[str, BuildConfig]:
         BuildAsset("src/assets/manifest.json", "manifest.json"),
         BuildAsset("src/pages/background.js", "pages/background.js"),
         BuildAsset("src/assets/favicons", dst_name="assets/favicons", is_dir=True),
+        BuildAsset("src/assets/icons", dst_name="assets/icons", is_dir=True),
         BuildAsset("src/pages/newtab", "pages/newtab", is_dir=True, minify=True),
         BuildAsset(
             "src/pages/options",

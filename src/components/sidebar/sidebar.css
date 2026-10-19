@@ -1,155 +1,248 @@
+/* The sidebar is a flex sibling of the bookmark columns: everything fills
+   the available space together. Left is the DOM default; the body's
+   sidebar-right class re-orders it to the far side via flex order. */
 .sidebar {
-    position: fixed;
-    top: 0;
-    height: 100vh;
-    width: 280px;
+    display: flex;
+    /* Internal stack: the content fills the panel top-to-bottom. */
+    flex-direction: column;
+    flex: 1 1 0;
+    align-self: stretch;
+    /* The sidebar always stays visible; this floor keeps its content inside
+       the panel while the bookmark columns adapt by appearing/disappearing. */
+    min-width: 280px;
+    min-height: 0;
     background: rgba(25, 25, 25, 0.75);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    transition: transform 0.3s ease-in-out;
-    z-index: 10;
-    display: none; /* Hidden by default, enabled via JS */
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+body.dark .sidebar {
+    color: #f0f0f0;
 }
 
 body.light .sidebar {
     background: rgba(245, 245, 245, 0.75);
+    /* Explicit theme color: the body's text color follows the background
+       image (analyzeAndSetTextColor) and must not bleed into the panel. */
+    color: #222;
 }
 
-.sidebar.left {
-    left: 0;
-    transform: translateX(-100%);
-}
-
-.sidebar.right {
-    right: 0;
-    transform: translateX(100%);
-}
-
-.sidebar:not(.minimised) {
-    transform: translateX(0);
-}
-
-.sidebar-handle {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 36px;
-    height: 36px;
-    background: rgba(0, 0, 0, 0.25);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-}
-
-body.light .sidebar-handle {
-    background: rgba(0, 0, 0, 0.05);
-}
-
-.sidebar.left .sidebar-handle {
-    right: -45px;
-}
-
-.sidebar.right .sidebar-handle {
-    left: -45px;
-}
-
-.sidebar-caret {
-    width: 0;
-    height: 0;
-    border-top: 6px solid transparent;
-    border-bottom: 6px solid transparent;
-    transition: transform 0.3s ease;
-}
-
-.sidebar.left .sidebar-caret {
-    border-left: 6px solid #f0f0f0;
-}
-
-.sidebar.left:not(.minimised) .sidebar-caret {
-    transform: rotate(180deg);
-}
-
-body.light .sidebar.left .sidebar-caret {
-    border-left-color: #222;
-}
-
-.sidebar.right .sidebar-caret {
-    border-right: 6px solid #f0f0f0;
-}
-
-.sidebar.right:not(.minimised) .sidebar-caret {
-    transform: rotate(180deg);
-}
-
-body.light .sidebar.right .sidebar-caret {
-    border-right-color: #222;
+body.sidebar-right .sidebar {
+    order: 2;
 }
 
 .sidebar-content {
-    padding: 20px;
-    height: 100%;
-    overflow-y: auto;
-    box-sizing: border-box;
-}
-
-/* About panel icon links - default uses light border on dark backgrounds */
-
-/* Web Store badge image styling - follow branding: do not alter badge aspect ratio */
-.webstore-badge {
-    height: 36px;
-    width: auto;
-    display: block;
-    border-radius: 6px;
-}
-
-.webstore-badge-link { padding: 4px; }
-
-.fallback-store-icon { color: inherit; }
-
-/* Ensure both About icons (webstore + github) visually match the official badge size */
-.about-links { gap: 12px; }
-
-/* Make both icons look like they're part of the page: no heavy borders, same size as chrome badge */
-.about-links .icon-link {
-    display: inline-flex;
+    /* Same inner inset the bookmark columns use for their content; the small
+       bottom inset keeps a cropped widget clear of the footer divider. */
+    padding: 12px 12px 6px;
+    flex: 1 1 0;
+    min-height: 0;
+    /* Widget stack: widgets keep a stable size (floor + cap) and center in
+       the panel instead of stretching with the sidebar's flex width. */
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
-    padding: 6px 8px;
-    width: auto;
-    height: auto;
-    background: transparent; /* blend with page */
-    border: 1px solid rgba(255,255,255,0.14); /* white-ish border for dark mode */
-    border-radius: 6px;
-    transition: transform 0.08s ease, opacity 0.12s ease;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    box-sizing: border-box;
+    /* Rounded scrollport: widgets scrolled away curl off with the rounded
+       padding instead of being cut by a flat line. */
+    border-radius: 14px;
+    /* No scrollbar, like the bookmark columns (scrolling still works) */
+    scrollbar-width: none; /* Firefox */
+    -webkit-overflow-scrolling: touch;
 }
 
-.about-links .icon-link img {
-    height: 36px; /* official badge height */
-    width: auto;
-    display: block;
+.sidebar-content::-webkit-scrollbar {
+    display: none; /* WebKit */
 }
 
-.about-links .icon-link:hover {
-    transform: translateY(-2px);
-    opacity: 0.95;
+/* Sidebar edge drag handles: slim strips at either edge; grab and drop the
+   sidebar on a screen half to dock it there. */
+.sidebar-draghandle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 10px;
+    z-index: 6;
+    cursor: grab;
 }
 
-/* Light theme: use darker (black) border so icons stand out */
-body.light .about-links .icon-link {
-    border: 1px solid rgba(0,0,0,0.16);
+.sidebar-draghandle.left { left: 0; }
+.sidebar-draghandle.right { right: 0; }
+
+.sidebar-draghandle::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: currentColor;
+    opacity: 0;
+    transition: opacity 0.15s ease;
 }
+
+.sidebar-draghandle.left::after { left: 3px; }
+.sidebar-draghandle.right::after { right: 3px; }
+
+.sidebar-draghandle:hover::after { opacity: 0.3; }
+.sidebar-draghandle:active { cursor: grabbing; }
+
+body.sidebar-left .sidebar { order: 0; }
+
+/* Dock cue shown while dragging the sidebar: sits at the screen edge of the
+   half the pointer is over. */
+.sidebar-drop-cue {
+    position: fixed;
+    top: 12px;
+    bottom: 12px;
+    width: 5px;
+    border-radius: 999px;
+    background: rgba(150, 180, 255, 0.85);
+    box-shadow: 0 0 10px rgba(120, 160, 255, 0.8);
+    z-index: 10000;
+    pointer-events: none;
+}
+
+.sidebar-drop-cue.at-left { left: 4px; }
+.sidebar-drop-cue.at-right { right: 4px; }
+.sidebar-drop-cue.hidden { display: none; }
 
 .widget {
     background: rgba(0, 0, 0, 0.25);
     border-radius: 8px;
     padding: 15px;
     margin-bottom: 15px;
+    /* Stable width inside the flex sidebar: keeps a usable floor at the
+       280px sidebar minimum and stops stretching beyond the cap, so
+       contents (clock, calendar grid, weather line) never look blown up
+       when the sidebar is wider. Centered by .sidebar-content. */
+    width: 100%;
+    min-width: 240px;
+    max-width: 300px;
+    box-sizing: border-box;
 }
 
 body.light .widget {
     background: rgba(0, 0, 0, 0.05);
+}
+
+/* Clock widget (moved into the sidebar from the page center) */
+.sidebar .widget-clock {
+    padding: 12px 15px 10px;
+}
+
+/* Big sidebar clock filling the widget width */
+.sidebar .clock {
+    margin: 0;
+    font-size: 4rem;
+    font-weight: 700;
+    line-height: 1.02;
+    letter-spacing: -0.02em;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.sidebar .clock .ampm {
+    font-size: 0.32em;
+    margin-left: 0.1em;
+    font-weight: 600;
+    opacity: 0.8;
+}
+
+/* Weather widget */
+.sidebar .weather {
+    margin: 0;
+    font-size: 0.95rem;
+    text-align: center;
+    opacity: 0.95;
+}
+
+/* Sidebar footer: customize + theme controls.
+   Styled to match the dashed "+ Add" button inside the columns. Pinned to
+   the bottom of the panel: it never scrolls away with the widget stack. */
+.sidebar-footer {
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    gap: 12px;
+    flex: none;
+    align-self: center;
+    /* Fixed glass end-zone: the divider + margin keep the panel's rounded
+       bottom padding visible while the widget stack scrolls above it. */
+    margin: 4px 12px 10px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(128, 128, 128, 0.25);
+    /* Same width window as the widgets above it. */
+    width: calc(100% - 24px);
+    min-width: 240px;
+    max-width: 300px;
+    box-sizing: border-box;
+}
+
+body.light .sidebar-footer {
+    border-top-color: rgba(0, 0, 0, 0.12);
+}
+
+.sidebar-footer-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1.5px dashed var(--sidebar-dash-border, rgba(255, 255, 255, 0.28));
+    border-radius: 14px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 0.88rem;
+    font-weight: 600;
+    opacity: 0.7;
+    cursor: pointer;
+    padding: 0;
+    height: 48px;
+    transition: opacity 0.12s ease, background-color 0.12s ease;
+    box-sizing: border-box;
+    white-space: nowrap;
+}
+
+body.light .sidebar-footer-btn {
+    --sidebar-dash-border: rgba(0, 0, 0, 0.25);
+}
+
+.sidebar-footer-btn:hover {
+    opacity: 1;
+    background: var(--hover-bg, rgba(255, 255, 255, 0.07));
+}
+
+body.light .sidebar-footer-btn:hover {
+    background: rgba(0, 0, 0, 0.04);
+}
+
+.sidebar-footer-icon {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.sidebar-theme-btn .theme-icon svg {
+    width: 18px;
+    height: 18px;
+    vertical-align: middle;
+    transition: transform 0.3s ease;
+}
+
+.sidebar-theme-btn:hover .theme-icon svg {
+    transform: rotate(20deg);
+}
+
+.sidebar-theme-btn .theme-label {
+    max-width: none;
+    opacity: 1;
+    font-size: 0.9rem;
+    text-decoration: none;
 }
 
 .widget h3,
@@ -355,6 +448,65 @@ body.todo-dragging * {
     text-align: left;
 }
 
+.history-widget .history-search-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.history-widget .history-search-input {
+    width: 100%;
+    padding: 7px 28px 7px 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid transparent;
+    border-radius: 4px;
+    color: inherit;
+    font-family: monospace;
+    font-size: 0.9em;
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.history-widget .history-search-input:focus {
+    border-color: rgba(128, 128, 128, 0.4);
+    background: rgba(0, 0, 0, 0.25);
+}
+
+body.light .history-widget .history-search-input {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+body.light .history-widget .history-search-input:focus {
+    border-color: rgba(0, 0, 0, 0.2);
+    background: rgba(0, 0, 0, 0.08);
+}
+
+.history-widget .history-search-clear {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: inherit;
+    opacity: 0.5;
+    font-size: 1.2em;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 2px;
+}
+
+.history-widget .history-search-clear:hover {
+    opacity: 1;
+}
 
 .history-widget .history-list {
     list-style: none;

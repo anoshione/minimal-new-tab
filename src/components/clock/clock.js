@@ -26,9 +26,21 @@ function updateClock() {
   }
 }
 
+let clockInterval = null;
+
 function renderClock() {
   updateClock();
-  setInterval(updateClock, 1000);
+  if (clockInterval) {
+    clearInterval(clockInterval);
+  }
+  clockInterval = setInterval(updateClock, 1000);
 }
 
-export { renderClock };
+function stopClock() {
+  if (clockInterval) {
+    clearInterval(clockInterval);
+    clockInterval = null;
+  }
+}
+
+export { renderClock, stopClock };

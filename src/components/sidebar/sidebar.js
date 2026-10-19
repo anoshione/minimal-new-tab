@@ -1,25 +1,48 @@
 import { renderCalendar } from '../../widgets/calendar.js';
 import { renderTodo } from '../../widgets/todo.js';
 import { renderHistory } from '../../widgets/history.js';
+import { navigateTo } from '../../shared/navigation-helper.js';
 
 function renderSidebar(settings) {
     const sidebar = document.getElementById('sidebar');
-    sidebar.style.display = 'flex';
     const isLeft = settings.sidebarPosition === 'left';
-    sidebar.classList.add(isLeft ? 'left' : 'right');
+    sidebar.className = 'sidebar ' + (isLeft ? 'left' : 'right');
     document.body.classList.toggle('sidebar-left', isLeft);
     document.body.classList.toggle('sidebar-right', !isLeft);
 
-    const sidebarHandle = document.createElement('div');
-    sidebarHandle.className = 'sidebar-handle';
-    sidebarHandle.innerHTML = '<span class="sidebar-caret"></span>';
-    sidebar.appendChild(sidebarHandle);
+    // The sidebar is a permanent, always-expanded fixture.
+    document.body.classList.add('sidebar-open');
+
+    // Either edge of the sidebar is a grab handle: drag it and drop toward the
+    // left or right half of the screen to dock the sidebar on that side.
+    ['left', 'right'].forEach((side) => {
+        const handle = document.createElement('div');
+        handle.className = 'sidebar-draghandle ' + side;
+        handle.title = 'Drag to move the sidebar to the ' + side + ' side';
+        handle.draggable = true;
+        handle.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData(SIDEBAR_DRAG_TYPE, side);
+            e.dataTransfer.setData('text/plain', 'sidebar');
+            e.dataTransfer.effectAllowed = 'move';
+        });
+        sidebar.appendChild(handle);
+    });
 
     const sidebarContent = document.createElement('div');
     sidebarContent.className = 'sidebar-content';
     sidebar.appendChild(sidebarContent);
 
-    const selectedWidgets = settings.sidebarWidgets || [];
+    // Clock + weather live in the sidebar as widget cards at the top of the
+    // stack, and are always on: the existing #clock / #weather elements are
+    // moved here so the renderers in clock.js / weather.js keep working.
+    ['clock', 'weather'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const widget = document.createElement('div');
+        widget.className = `widget widget-${id}`;
+        widget.appendChild(el);
+        sidebarContent.appendChild(widget);
+    });
 
     const widgetRenderers = {
         calendar: renderCalendar,
@@ -27,32 +50,106 @@ function renderSidebar(settings) {
         history: renderHistory
     };
 
-    if (selectedWidgets.length > 0) {
-        selectedWidgets.forEach(widgetId => {
-            if (widgetRenderers[widgetId]) {
-                const widgetContainer = document.createElement('div');
-                widgetContainer.classList.add('widget');
-                widgetContainer.id = `widget-${widgetId}`;
+    // Selected widgets only: clock and weather are always on; calendar,
+    // history and todo are user-toggleable in the options widgets table.
+    const selectedWidgets = Array.isArray(settings.sidebarWidgets)
+        ? settings.sidebarWidgets
+        : [];
 
-                const widgetContent = widgetRenderers[widgetId];
-                widgetContainer.append(widgetContent());
-                sidebarContent.appendChild(widgetContainer);
-            }
-        });
-    } else {
-        sidebarContent.innerHTML = '<p style="text-align: center; margin-top: 50px;">No widgets selected. You can add widgets from the Customize menu.</p>';
-    }
+    selectedWidgets.forEach(widgetId => {
+        const widgetContent = widgetRenderers[widgetId];
+        if (!widgetContent) return;
+        const widgetContainer = document.createElement('div');
+        widgetContainer.classList.add('widget');
+        widgetContainer.id = `widget-${widgetId}`;
 
-    if (settings.sidebarExpanded) {
-        sidebar.classList.remove('minimised');
-    } else {
-        sidebar.classList.add('minimised');
-    }
-
-    const handle = sidebar.querySelector('.sidebar-handle');
-    handle.addEventListener('click', () => {
-        sidebar.classList.toggle('minimised');
+        widgetContainer.append(widgetContent());
+        sidebarContent.appendChild(widgetContainer);
     });
+
+    // Sidebar footer: customization lives here too (settings + theme).
+    const footer = document.createElement('div');
+    footer.className = 'sidebar-footer';
+
+    const customizeBtn = document.createElement('button');
+    customizeBtn.type = 'button';
+    customizeBtn.className = 'sidebar-footer-btn';
+    customizeBtn.title = 'Customize';
+    customizeBtn.innerHTML = '<span class="sidebar-footer-icon">⚙</span><span>Customize</span>';
+    customizeBtn.addEventListener('click', () => {
+        navigateTo('../options/options.html', { newTab: false });
+    });
+
+    const themeBtn = document.createElement('button');
+    themeBtn.type = 'button';
+    themeBtn.className = 'sidebar-footer-btn sidebar-theme-btn';
+    themeBtn.title = 'Change theme';
+    themeBtn.innerHTML = '<span class="theme-icon"></span><span class="theme-label">System</span>';
+    themeBtn.addEventListener('click', () => {
+        const current = localStorage.getItem("theme") || "system";
+        const next = current === "system" ? "dark" : (current === "dark" ? "light" : "system");
+        localStorage.setItem("theme", next);
+        if (typeof applyTheme === "function") applyTheme(next);
+    });
+
+    // Keep the content scrollable and keep the footer pinned: content fills
+    // the space above the footer and scrolls when widgets overflow.
+    footer.appendChild(customizeBtn);
+    footer.appendChild(themeBtn);
+    sidebar.appendChild(footer);
+
+    // Fill the theme label/icon now that the footer exists.
+    if (typeof applyTheme === "function") applyTheme(localStorage.getItem("theme") || "system");
 }
+
+/* --------------------------------------------------------------------------
+   Sidebar side drag & drop: dropping the dragged sidebar on the left or right
+   half of the screen docks it there. Stored in the same sidebarPosition
+   setting the options page used to control.
+   -------------------------------------------------------------------------- */
+
+const SIDEBAR_DRAG_TYPE = 'application/x-bm-sidebar';
+
+function setSidebarSide(side) {
+    try {
+        const stored = JSON.parse(localStorage.getItem('settings')) || {};
+        stored.sidebarPosition = side;
+        localStorage.setItem('settings', JSON.stringify(stored));
+    } catch {}
+    const isLeft = side === 'left';
+    document.body.classList.toggle('sidebar-left', isLeft);
+    document.body.classList.toggle('sidebar-right', !isLeft);
+}
+
+const sidebarCue = document.createElement('div');
+sidebarCue.className = 'sidebar-drop-cue hidden';
+document.body.appendChild(sidebarCue);
+
+const sidebarDragTypes = (e) =>
+    [...((e.dataTransfer && e.dataTransfer.types) || [])];
+
+document.addEventListener('dragover', (e) => {
+    if (!sidebarDragTypes(e).includes(SIDEBAR_DRAG_TYPE)) return;
+    e.preventDefault();
+    sidebarCue.classList.remove('hidden', 'at-left', 'at-right');
+    sidebarCue.classList.add(e.clientX < window.innerWidth / 2 ? 'at-left' : 'at-right');
+});
+
+document.addEventListener('dragend', () => {
+    sidebarCue.classList.add('hidden');
+    sidebarCue.classList.remove('at-left', 'at-right');
+});
+
+document.addEventListener('drop', (e) => {
+    if (!sidebarDragTypes(e).includes(SIDEBAR_DRAG_TYPE)) return;
+    e.preventDefault();
+    const dropLeft = e.clientX < window.innerWidth / 2;
+    sidebarCue.classList.add('hidden');
+    sidebarCue.classList.remove('at-left', 'at-right');
+    setSidebarSide(dropLeft ? 'left' : 'right');
+});
+
+/* Widgets are never hidden for space: .sidebar-content scrolls (hidden
+   scrollbar, like the columns) while the footer stays pinned below it. */
 
 export { renderSidebar };

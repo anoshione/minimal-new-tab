@@ -377,47 +377,11 @@ body.light #options-wrapper input[type="range"] {
     background: rgba(128, 128, 128, 0.2);
 }
 
-.options-sidebar {
-    /*width: 200px;*/
-    padding: 1.5rem;
-    background: rgba(0, 0, 0, 0.15);
-    border-right: 1px solid rgba(128, 128, 128, 0.1);
-    flex-shrink: 0;
-}
-
-body.light .options-sidebar {
-    background: rgba(0, 0, 0, 0.03);
-}
-
-.options-sidebar nav {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25em;
-}
-
-.options-sidebar nav a {
-    text-decoration: none;
-    color: inherit;
-    padding: 0.6em 0.9em;
-    border-radius: 8px;
-    transition: all 0.15s ease;
-    font-size: 0.95em;
+.options-note {
+    font-size: 0.85em;
     opacity: 0.7;
-}
-
-.options-sidebar nav a:hover {
-    background-color: rgba(128, 128, 128, 0.15);
-    opacity: 1;
-}
-
-.options-sidebar nav a.active {
-    background-color: rgba(128, 128, 128, 0.25);
-    font-weight: 500;
-    opacity: 1;
-}
-
-body.light .options-sidebar nav a.active {
-    background-color: rgba(0, 0, 0, 0.08);
+    margin-top: 1.4em;
+    line-height: 1.5;
 }
 
 .options-content {
@@ -580,141 +544,6 @@ body.light .background-add-label {
     transform: translateY(0);
 }
 
-#options-wrapper button.ghost-button {
-    background: rgba(128, 128, 128, 0.1);
-    border: 1px solid rgba(128, 128, 128, 0.3);
-    color: inherit;
-    transition: all 0.15s ease;
-}
-
-#options-wrapper button.ghost-button:hover {
-    background: rgba(128, 128, 128, 0.2);
-    border-color: rgba(128, 128, 128, 0.4);
-}
-
-#options-wrapper button.ghost-button.drag-over {
-    background: var(--color-accent);
-    border-color: var(--color-accent);
-    color: #1c1c1c;
-    border-style: dashed;
-}
-
-body.light #options-wrapper button.ghost-button.drag-over {
-    color: white;
-}
-
-.settings-data-container {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: stretch;
-}
-
-.settings-data-container .button-row {
-    display: flex;
-    gap: 0.5em;
-}
-
-.drop-zone {
-    margin-top: 0.8em;
-    padding: 1.2em;
-    border: 2px dashed rgba(128, 128, 128, 0.3);
-    border-radius: 10px;
-    text-align: center;
-    transition: all 0.15s ease;
-    box-sizing: border-box;
-    background: rgba(128, 128, 128, 0.05);
-}
-
-.drop-zone-text {
-    opacity: 0.5;
-    font-size: 0.9em;
-}
-
-.drop-zone.drag-over {
-    background: rgba(128, 128, 128, 0.12);
-    border-color: var(--color-accent);
-}
-
-.drop-zone.drag-over .drop-zone-text {
-    opacity: 0.8;
-}
-
-#options-wrapper button.ghost-button {
-    background: transparent;
-    border: 1px solid rgba(128, 128, 128, 0.5);
-    color: inherit;
-    transition:
-        background-color 0.2s ease,
-        border-color 0.2s ease,
-        color 0.2s ease;
-}
-
-#options-wrapper button.ghost-button:hover {
-    background: #f0f0f0;
-    border-color: #f0f0f0;
-    color: #222;
-}
-
-#options-wrapper button.ghost-button.drag-over {
-    background: #f0f0f0;
-    border-color: #f0f0f0;
-    color: #222;
-    border-style: dashed;
-}
-
-body.light #options-wrapper button.ghost-button:hover {
-    background: #222;
-    border-color: #222;
-    color: #f0f0f0;
-}
-
-body.light #options-wrapper button.ghost-button.drag-over {
-    background: #222;
-    border-color: #222;
-    color: #f0f0f0;
-    border-style: dashed;
-}
-
-.settings-data-container {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: stretch;
-}
-
-.settings-data-container .button-row {
-    display: flex;
-    gap: 0.5em;
-}
-
-.drop-zone {
-    margin-top: 0.8em;
-    padding: 1em;
-    border: 1px dashed rgba(128, 128, 128, 0.4);
-    border-radius: 4px;
-    text-align: center;
-    transition:
-        background-color 0.2s ease,
-        border-color 0.2s ease;
-    box-sizing: border-box;
-}
-
-.drop-zone-text {
-    opacity: 0.6;
-    font-size: 0.9em;
-}
-
-.drop-zone.drag-over {
-    background: rgba(128, 128, 128, 0.15);
-    border-color: #f0f0f0;
-}
-
-.drop-zone.drag-over .drop-zone-text {
-    opacity: 1;
-}
-
-body.light .drop-zone.drag-over {
-    border-color: #222;
-}
 
 .options-panel {
     display: none;
@@ -722,42 +551,6 @@ body.light .drop-zone.drag-over {
 
 .options-panel.active {
     display: block;
-}
-
-/* Reorderable list styles */
-.reorder-list .drag-handle,
-.options-table .drag-handle {
-    cursor: grab;
-}
-
-.options-table tbody tr {
-    cursor: grab;
-}
-
-.reorder-list tr.dragging,
-.options-table tr.dragging {
-    opacity: 0.95;
-    background: rgba(128, 128, 128, 0.3);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    cursor: grabbing;
-}
-
-.reorder-list tr.dragging .drag-handle,
-.options-table tr.dragging .drag-handle {
-    cursor: grabbing;
-}
-
-.options-table tr.drag-placeholder td {
-    background: rgba(128, 128, 128, 0.15);
-    border: 2px dashed rgba(128, 128, 128, 0.4);
-    border-radius: 4px;
-    box-sizing: border-box;
-    padding: 0;
-}
-
-.options-table tr.drag-placeholder {
-    background: none;
-    border: none;
 }
 
 #save {
@@ -780,64 +573,16 @@ body.light .drop-zone.drag-over {
     box-shadow: 0 0 0 3px rgba(244, 67, 54, 0.3);
 }
 
-.beta-badge {
-    font-size: 0.6em;
-    font-weight: 700;
-    vertical-align: middle;
-    padding: 2px 6px;
-    border-radius: 4px;
-    background: var(--beta-bg);
-    border: 1px solid var(--beta-border);
-    color: var(--beta-text);
-    letter-spacing: 0.05em;
-    margin-left: 4px;
-}
 
 :root {
-    --color-accent: var(--pixel-art-color, #3b82f6);
+    --color-accent: #3b82f6;
     --color-accent-text: #ffffff;
-    --beta-bg: rgba(255, 183, 77, 0.2);
-    --beta-border: rgba(255, 183, 77, 0.5);
-    --beta-text: #ffb74d;
 }
 
 body.light {
-    --color-accent: var(--pixel-art-color, #2563eb);
+    --color-accent: #2563eb;
     --color-accent-text: #ffffff;
-    --beta-bg: rgba(255, 152, 0, 0.1);
-    --beta-border: rgba(255, 152, 0, 0.4);
-    --beta-text: #e65100;
 }
-
-.art-grid {
-    position: absolute;
-    inset: 0;
-    display: grid;
-    grid-template-columns: repeat(12, 1fr);
-    grid-template-rows: repeat(8, 1fr);
-    pointer-events: none;
-    z-index: -1;
-}
-
-.art-cell {
-    position: relative;
-}
-
-.art-cell svg {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 16px;
-    height: 16px;
-    fill: var(--pixel-art-color, var(--color-accent));
-    opacity: 0.4;
-    transform: translate(-50%, -50%) rotate(var(--rotate, 0deg));
-}
-
-.art-cell svg path {
-    fill: inherit;
-}
-
 
 .sub-settings {
     margin-left: 1.5em;
@@ -848,10 +593,8 @@ body.light {
 /* Disabled state for sub-settings - only target specific container IDs */
 .sub-settings.disabled,
 #sidebar-options.disabled,
-#shortcuts-links.disabled,
 #weather-options.disabled,
-#bookmark-folder-selector-span.disabled,
-#pixel-art-select-div.disabled {
+#bookmark-folder-selector-span.disabled {
     opacity: 0.4;
     pointer-events: none;
     user-select: none;
@@ -979,108 +722,94 @@ body.light .segmented-control input[type="radio"]:checked + span {
     font-weight: 600;
 }
 
-/* About panel icon links - default uses light border on dark backgrounds */
 
-/* Web Store badge image styling - follow branding: do not alter badge aspect ratio */
-.webstore-badge {
-    height: 36px;
-    width: auto;
-    display: block;
+/* ==========================================================================
+   Bookmark Columns settings
+   ========================================================================== */
+
+.bm-col-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.bm-col-row input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    padding: 6px 9px;
     border-radius: 6px;
-}
-
-.webstore-badge-link {
-    padding: 4px;
-}
-
-.fallback-store-icon {
+    border: 1px solid rgba(128, 128, 128, 0.4);
+    background: transparent;
     color: inherit;
+    font-family: inherit;
+    font-size: 0.95em;
+    box-sizing: border-box;
 }
 
-/* Ensure both About icons (webstore + github) visually match the official badge size */
-.about-links {
-    gap: 12px;
+.bm-col-row input[type="text"]:focus {
+    outline: none;
+    border-color: rgba(128, 128, 128, 0.8);
 }
 
-/* Make both icons look like they're part of the page: no heavy borders, same size as chrome badge */
-.about-links .icon-link {
+.bm-col-btn {
+    flex: none;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid rgba(128, 128, 128, 0.4);
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    font-size: 0.9em;
+    cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 6px 8px;
-    width: auto;
-    height: auto;
-    background: transparent; /* blend with page */
-    border: 1px solid rgba(255, 255, 255, 0.14); /* white-ish border for dark mode */
+    transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+.bm-col-btn:hover:not(:disabled) {
+    background: rgba(128, 128, 128, 0.15);
+}
+
+.bm-col-btn:disabled {
+    opacity: 0.3;
+    cursor: default;
+}
+
+.bm-col-btn.delete:hover {
+    background: rgba(220, 38, 38, 0.12);
+    border-color: rgba(220, 38, 38, 0.5);
+    color: #dc2626;
+}
+
+.bm-col-count {
+    flex: none;
+    opacity: 0.6;
+    font-size: 0.8em;
+    min-width: 4.5em;
+    text-align: right;
+}
+
+.bm-col-empty {
+    opacity: 0.65;
+    font-size: 0.9em;
+}
+
+#bm-add-column {
+    padding: 6px 14px;
     border-radius: 6px;
-    transition:
-        transform 0.08s ease,
-        opacity 0.12s ease;
+    border: 1px dashed rgba(128, 128, 128, 0.5);
+    background: transparent;
+    color: inherit;
+    font-family: inherit;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: background-color 0.12s ease, border-color 0.12s ease;
 }
 
-.about-links .icon-link img {
-    height: 36px; /* official badge height */
-    width: auto;
-    display: block;
-}
-
-.about-links .icon-link:hover {
-    transform: translateY(-2px);
-    opacity: 0.95;
-}
-
-/* Light theme: use darker (black) border so icons stand out */
-body.light .about-links .icon-link {
-    border: 1px solid rgba(0, 0, 0, 0.16);
-}
-
-.tooltip-wrapper {
-    position: relative;
-}
-
-.tooltip-wrapper.disabled > * {
-    opacity: 0.5;
-    pointer-events: none;
-}
-
-.tooltip-wrapper.disabled:hover::after {
-    content: attr(data-tooltip);
-    position: absolute;
-    left: 50%;
-    bottom: 100%;
-    transform: translateX(-50%);
-    background-color: #333;
-    color: #fff;
-    padding: 5px 10px;
-    border-radius: 4px;
-    font-size: 0.85em;
-    white-space: nowrap;
-    z-index: 10;
-}
-
-body.light .tooltip-wrapper.disabled:hover::after {
-    background-color: #eee;
-    color: #333;
-}
-/* Custom tooltip for tooltip-wrapper when not disabled */
-.tooltip-wrapper:hover::after {
-    content: attr(data-tooltip);
-    position: absolute;
-    left: 50%;
-    bottom: 100%;
-    transform: translateX(-50%);
-    background-color: #333;
-    color: #fff;
-    padding: 6px 10px;
-    border-radius: 6px;
-    font-size: 0.85em;
-    white-space: nowrap;
-    z-index: 20;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
-}
-
-body.light .tooltip-wrapper:hover::after {
-    background-color: #eee;
-    color: #222;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+#bm-add-column:hover {
+    background: rgba(128, 128, 128, 0.12);
+    border-style: solid;
 }

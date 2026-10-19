@@ -1,29 +1,3 @@
-function debounce(func, delay) {
-  let timeout;
-  return function (...args) {
-    const context = this;
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func.apply(context, args), delay);
-  };
-}
-
-async function fetchCitySuggestions(query) {
-  if (query.length < 3) {
-    document.getElementById("city-suggestions").style.display = "none";
-    return;
-  }
-  try {
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&featuretype=city&limit=5`,
-    );
-    const data = await response.json();
-    return data.map((place) => place.display_name);
-  } catch (error) {
-    console.error("Error fetching city suggestions:", error);
-    return [];
-  }
-}
-
 function showNotification(
   message,
   duration = 2000,
@@ -49,41 +23,19 @@ function showNotification(
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  // The settings page only edits theme + wallpaper now; every other key is
+  // preserved as-is when saving (managed on the new tab page or by defaults).
   const settings_keys = [
-    "clock",
     "clockFormat",
-    "weather",
     "useCustomCity",
     "customCity",
     "tempUnit",
-    "bookmarks",
-    "bookmarkFolder",
-    "expandBookmarks",
-    "topRight",
-    "topRightOrder",
-    "pixelArt",
-    "selectedPixelArt",
-    "customSVG",
-    "pixelArtOpacity",
-    "pixelArtDensity",
-    "pixelArtColorDark",
-    "pixelArtColorLight",
     "availableWidgets",
     "theme",
     "backgroundImage",
-    "sidebar",
+    "refreshFavicons",
     "sidebarPosition",
     "sidebarWidgets",
-    "sidebarExpanded",
-    "useUnsplash",
-    "unsplashApiKey",
-    "unsplashUpdateFrequency",
-    "showUnsplashRefresh",
-    "customCSS",
-    "enableKeyboardNav",
-    "enableBangs",
-    "openInNewTab",
-    "defaultSearchEngine",
   ];
 
   let settingsJsonStr =
@@ -94,195 +46,6 @@ document.addEventListener("DOMContentLoaded", () => {
       settings[key] = defaultSettings[key];
     }
   });
-  // Initialize clock format (12h/24h)
-  if (settings["clockFormat"]) {
-    const clockFormatRadio = document.querySelector(
-      `input[name="clock-format"][value="${settings.clockFormat}"]`,
-    );
-    if (clockFormatRadio) clockFormatRadio.checked = true;
-  }
-
-  // Ensure clock checkbox reflects saved setting
-  if (settings["clock"]) {
-    const sc = document.getElementById("show-clock");
-    if (sc) sc.checked = true;
-  }
-
-  // Show/hide clock format options depending on clock toggle
-  const clockFormatContainer = document.getElementById("clock-format");
-  if (clockFormatContainer)
-    clockFormatContainer.style.display = settings["clock"] ? "block" : "none";
-  const showClockCheckbox = document.getElementById("show-clock");
-  if (showClockCheckbox && clockFormatContainer) {
-    showClockCheckbox.addEventListener("change", (e) => {
-      clockFormatContainer.style.display = e.target.checked ? "block" : "none";
-    });
-  }
-  if (settings["weather"]) {
-    document.getElementById("show-weather").checked = true;
-  } else {
-    document.getElementById("weather-options").classList.add("disabled");
-  }
-  if (settings["useCustomCity"]) {
-    document.getElementById("use-custom-city").checked = true;
-    document.getElementById("custom-city-container").style.display = "block";
-  } else {
-    document.getElementById("custom-city-container").style.display = "none";
-  }
-  if (settings["customCity"]) {
-    document.getElementById("custom-city").value = settings["customCity"];
-  }
-  if (settings["tempUnit"]) {
-    document.querySelector(
-      `input[name="temp-unit"][value="${settings.tempUnit}"]`,
-    ).checked = true;
-  }
-  if (settings["bookmarks"]) {
-    document.getElementById("show-bookmarks").checked = true;
-  } else {
-    document
-      .querySelector("#bookmark-folder-selector-span")
-      .classList.add("disabled");
-  }
-  if (settings["expandBookmarks"]) {
-    document.getElementById("expand-bookmarks").checked = true;
-  }
-  if (settings["topRight"]) {
-    document.getElementById("show-topRight").checked = true;
-  } else {
-    document.querySelector("#shortcuts-links").classList.add("disabled");
-  }
-  if (settings["pixelArt"]) {
-    document.getElementById("show-pixelArt").checked = true;
-  } else {
-    document.getElementById("pixel-art-select-div").classList.add("disabled");
-  }
-  if (settings["selectedPixelArt"]) {
-    document.getElementById("pixel-art-select").value =
-      settings["selectedPixelArt"];
-    if (settings["selectedPixelArt"] == "custom") {
-      document.getElementById("custom-svg-input-div").style.display = "block";
-      document.getElementById("custom-svg-input").value = settings["customSVG"];
-    } else {
-      document.getElementById("custom-svg-input-div").style.display = "none";
-    }
-  }
-  if (settings["pixelArtOpacity"]) {
-    document.getElementById("pixelArtOpacity").value =
-      settings["pixelArtOpacity"];
-  }
-  if (settings["pixelArtDensity"]) {
-    document.getElementById("pixelArtDensity").value =
-      settings["pixelArtDensity"];
-  }
-  if (settings["pixelArtColorDark"]) {
-    document.getElementById("pixelArtColorDark").value =
-      settings["pixelArtColorDark"];
-  }
-  if (settings["pixelArtColorLight"]) {
-    document.getElementById("pixelArtColorLight").value =
-      settings["pixelArtColorLight"];
-  }
-  if (settings["customCSS"]) {
-    document.getElementById("custom-css").value = settings["customCSS"];
-  }
-  if (settings["sidebar"]) {
-    document.getElementById("show-sidebar").checked = true;
-  } else {
-    document.getElementById("sidebar-options").classList.add("disabled");
-  }
-  if (settings["sidebarPosition"]) {
-    document.querySelector(
-      `input[name="sidebar-position"][value="${settings.sidebarPosition}"]`,
-    ).checked = true;
-  }
-  if (settings["sidebarExpanded"]) {
-    document.getElementById("sidebar-expanded-check").checked = true;
-  }
-
-  // Initialize keyboard navigation setting
-  if (settings["enableKeyboardNav"]) {
-    document.getElementById("enable-keyboard-nav").checked = true;
-  }
-
-  // Initialize bang search setting
-  if (settings["enableBangs"] !== false) {
-    document.getElementById("enable-bangs").checked = true;
-  }
-
-  // Dynamically display the current keyboard shortcuts
-  function formatShortcut(key) {
-    let s = key.replace(/Comma/g, ",");
-    const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
-    if (isMac) {
-      s = s.replace(/Option/g, "⌥").replace(/Alt/g, "⌥");
-    }
-    return s.replace(/([⌥])(?!\+)/g, "$1+");
-  }
-
-  function updateShortcutDisplay() {
-    const instructionParagraph = document.getElementById(
-      "shortcut-instruction-paragraph",
-    );
-    const howToUseEl = document.getElementById("how-to-use");
-
-    if (
-      typeof chrome !== "undefined" &&
-      chrome.commands &&
-      chrome.commands.getAll
-    ) {
-      chrome.commands.getAll((commands) => {
-        const toggleCommand = commands.find(
-          (cmd) => cmd.name === "toggle-overlay",
-        );
-        const optionsCommand = commands.find(
-          (cmd) => cmd.name === "open-options",
-        );
-        if (toggleCommand && toggleCommand.shortcut) {
-          const shortcut = formatShortcut(toggleCommand.shortcut);
-          if (instructionParagraph) {
-            let html = `<strong id="shortcut-instruction">${shortcut}</strong> — Open command overlay`;
-            if (optionsCommand && optionsCommand.shortcut) {
-              html += `<br><strong>${formatShortcut(optionsCommand.shortcut)}</strong> — Open options`;
-            }
-            instructionParagraph.innerHTML = html;
-          }
-          if (howToUseEl) {
-            howToUseEl.style.display = "block";
-            const usageEl = document.getElementById("shortcut-usage");
-            if (usageEl) usageEl.textContent = shortcut;
-            const optionsUsageEl = document.getElementById("shortcut-options");
-            if (optionsUsageEl && optionsCommand && optionsCommand.shortcut) {
-              optionsUsageEl.textContent = formatShortcut(optionsCommand.shortcut);
-            }
-          }
-        } else {
-          if (instructionParagraph) {
-            instructionParagraph.innerHTML = `Set a shortcut at <a href="#" id="open-shortcuts-inline" style="color:inherit;">chrome://extensions/shortcuts</a> to use keyboard navigation.`;
-            document
-              .getElementById("open-shortcuts-inline")
-              .addEventListener("click", (e) => {
-                e.preventDefault();
-                chrome.tabs.create({ url: "chrome://extensions/shortcuts" });
-              });
-          }
-          if (howToUseEl) howToUseEl.style.display = "none";
-        }
-      });
-    }
-  }
-  updateShortcutDisplay();
-
-  const openInNewTabCheckbox = document.getElementById("open-in-new-tab");
-  if (openInNewTabCheckbox) {
-    openInNewTabCheckbox.checked = !!settings["openInNewTab"];
-  }
-
-  const defaultSearchEngineSelect = document.getElementById("default-search-engine");
-  if (defaultSearchEngineSelect && settings["defaultSearchEngine"]) {
-    defaultSearchEngineSelect.value = settings["defaultSearchEngine"];
-  }
-
 
   const theme = localStorage.getItem("theme") || "system";
   if (document.querySelector(`input[name="theme"][value="${theme}"]`)) {
@@ -290,126 +53,46 @@ document.addEventListener("DOMContentLoaded", () => {
       true;
   }
 
-  // Handle background image preview
-  const bgPreview = document.getElementById("background-preview");
-  const imagePresentContainer = document.getElementById(
-    "image-present-container",
-  );
-  const bgAddLabel = document.getElementById("background-add-label");
-  const clearBgButton = document.getElementById("clear-background-image");
-  const useUnsplashCheckbox = document.getElementById("use-unsplash");
-  if (settings.useUnsplash) {
-    useUnsplashCheckbox.checked = true;
-    document.getElementById("unsplash-options").style.display = "block";
-  } else {
-    document.getElementById("unsplash-options").style.display = "none";
-  }
-
-  document.getElementById("unsplash-api-key").value =
-    settings.unsplashApiKey || "";
-  const unsplashApiKeyInput = document.getElementById("unsplash-api-key");
-  const unsplashUpdateFrequencySelect = document.getElementById(
-    "unsplash-update-frequency",
-  );
-  const showUnsplashRefreshCheckbox = document.getElementById(
-    "show-unsplash-refresh",
-  );
-
-  function toggleUnsplashAdvancedOptions() {
-    const hasApiKey = unsplashApiKeyInput.value.trim() !== "";
-    const tooltipWrappers = document.querySelectorAll(
-      "#unsplash-options .tooltip-wrapper",
+  // ---- Sidebar customization --------------------------------------------
+  if (settings.clockFormat) {
+    const cf = document.querySelector(
+      `input[name="clock-format"][value="${settings.clockFormat}"]`,
     );
-
-    unsplashUpdateFrequencySelect.disabled = !hasApiKey;
-    showUnsplashRefreshCheckbox.disabled = !hasApiKey;
-    if (!hasApiKey) {
-      showUnsplashRefreshCheckbox.checked = false;
-      tooltipWrappers.forEach((wrapper) => wrapper.classList.add("disabled"));
-    } else {
-      tooltipWrappers.forEach((wrapper) =>
-        wrapper.classList.remove("disabled"),
-      );
-    }
+    if (cf) cf.checked = true;
   }
-  toggleUnsplashAdvancedOptions(); // Initial check
-  document.getElementById("unsplash-update-frequency").value =
-    settings.unsplashUpdateFrequency || "daily";
-  showUnsplashRefreshCheckbox.checked = settings.showUnsplashRefresh || false;
+  if (settings.tempUnit) {
+    const tu = document.querySelector(
+      `input[name="temp-unit"][value="${settings.tempUnit}"]`,
+    );
+    if (tu) tu.checked = true;
+  }
+  if (settings.useCustomCity) {
+    document.getElementById("use-custom-city").checked = true;
+    document.getElementById("custom-city-container").style.display = "block";
+  }
+  document.getElementById("custom-city").value = settings.customCity || "";
 
-  // Populate About panel: logo and version + links
-  try {
-    // Prefer chrome.runtime.getManifest() when available (extension context)
-    let manifest = null;
-    if (
-      typeof chrome !== "undefined" &&
-      chrome.runtime &&
-      chrome.runtime.getManifest
-    ) {
-      manifest = chrome.runtime.getManifest();
-    }
-    if (manifest && manifest.version) {
-      document.getElementById("extension-version").textContent =
-        manifest.version;
-    } else {
-      // Fallback: fetch manifest.json relative to the page
-      fetch("manifest.json")
-        .then((r) => r.json())
-        .then((m) => {
-          if (m && m.version)
-            document.getElementById("extension-version").textContent =
-              m.version;
-        })
-        .catch(() => {
-          document.getElementById("extension-version").textContent = "Unknown";
-        });
-    }
-  } catch (e) {
-    try {
-      fetch("manifest.json")
-        .then((r) => r.json())
-        .then((m) => {
-          if (m && m.version)
-            document.getElementById("extension-version").textContent =
-              m.version;
-        });
-    } catch (ignored) {
-      document.getElementById("extension-version").textContent = "Unknown";
-    }
+  if (settings.sidebarPosition) {
+    const sp = document.querySelector(
+      `input[name="sidebar-position"][value="${settings.sidebarPosition}"]`,
+    );
+    if (sp) sp.checked = true;
   }
 
-  // If the webstore badge image exists, keep it; otherwise the img onerror handler shows the fallback SVG.
-  // Add an accessible tooltip using data-tooltip wrappers for consistent styling if desired later.
-
-  if (settings.backgroundImage) {
-    bgPreview.src = settings.backgroundImage;
-    bgPreview.classList.remove("hidden");
-    imagePresentContainer.classList.remove("hidden");
-    bgAddLabel.classList.add("hidden");
-    clearBgButton.classList.remove("hidden");
-  } else {
-    bgPreview.classList.add("hidden");
-    imagePresentContainer.classList.add("hidden");
-    bgAddLabel.classList.remove("hidden");
-    clearBgButton.classList.add("hidden");
-  }
-
-  // Populate widgets
+  // Widgets table: enabled widgets (in sidebar order) first, then the rest.
   const sidebarWidgetsTbody = document.getElementById("sidebar-widgets");
-  const enabledWidgets = settings.sidebarWidgets || [];
-  let allWidgets =
-    settings.availableWidgets || defaultSettings.availableWidgets;
-
-  if (!Array.isArray(allWidgets)) {
-    allWidgets = defaultSettings.availableWidgets;
-  }
-  allWidgets = Array.from(new Set([...allWidgets, ...defaultSettings.availableWidgets]));
-
-
-  // Create a set of enabled widgets for quick lookup
+  const enabledWidgets = Array.isArray(settings.sidebarWidgets)
+    ? settings.sidebarWidgets
+    : [];
+  let allWidgets = Array.isArray(settings.availableWidgets)
+    ? settings.availableWidgets
+    : defaultSettings.availableWidgets;
+  allWidgets = Array.from(
+    new Set([...allWidgets, ...defaultSettings.availableWidgets]),
+  );
   const enabledWidgetSet = new Set(enabledWidgets);
   const sortedWidgets = [
-    ...enabledWidgets,
+    ...enabledWidgets.filter((w) => allWidgets.includes(w)),
     ...allWidgets.filter((w) => !enabledWidgetSet.has(w)),
   ];
 
@@ -434,352 +117,154 @@ document.addEventListener("DOMContentLoaded", () => {
     sidebarWidgetsTbody.appendChild(tr);
   });
 
-  if (settings.topRightOrder) {
-    let tbody = document.querySelector("table#top-right-links tbody");
-    tbody.innerHTML = "";
-    settings["topRightOrder"].map((item) => {
-      let tr = document.createElement("tr");
-      let td1 = document.createElement("td");
-      let td1label = document.createElement("label");
-      td1label.className = "checkbox-label";
-      let td1check = document.createElement("input");
-      td1check.type = "checkbox";
-      td1check.setAttribute("data-key", item.id);
-      td1check.checked = item.displayBool;
-      td1label.innerHTML = '<span class="custom-checkbox"></span>';
-      td1label.prepend(td1check);
-      td1.append(td1label);
-      let td2 = document.createElement("td");
-      td2.innerHTML = item.id;
-      let td3 = document.createElement("td");
-      td3.innerHTML = `<span>☰</span>`;
-      td3.classList.add("drag-handle");
-      tr.innerHTML = "";
-      tr.append(td1);
-      tr.append(td2);
-      tr.append(td3);
-      tbody.append(tr);
-    });
-  }
-  const shortcutsTableBody = document.querySelector(
-    "table#top-right-links tbody",
-  );
-  let draggingShortcutRow = null;
-
-  shortcutsTableBody.addEventListener("dragstart", (e) => {
+  // Reorder rows by dragging: live preview, persisted on save.
+  const widgetList = document.getElementById("sidebar-widgets");
+  let draggingWidgetRow = null;
+  widgetList.addEventListener("dragstart", (e) => {
     const row = e.target.closest("tr");
     if (row) {
-      draggingShortcutRow = row;
+      draggingWidgetRow = row;
       e.dataTransfer.effectAllowed = "move";
-      e.dataTransfer.setData("text/plain", null); // Necessary for Firefox
+      e.dataTransfer.setData("text/plain", "widget-order");
       row.classList.add("dragging");
     }
   });
-
-  shortcutsTableBody.addEventListener("dragend", (e) => {
-    if (draggingShortcutRow) {
-      draggingShortcutRow.classList.remove("dragging");
-      draggingShortcutRow = null;
+  widgetList.addEventListener("dragend", () => {
+    if (draggingWidgetRow) {
+      draggingWidgetRow.classList.remove("dragging");
+      draggingWidgetRow = null;
     }
   });
-
-  shortcutsTableBody.addEventListener("dragover", (e) => {
+  widgetList.addEventListener("dragover", (e) => {
     e.preventDefault();
     const targetRow = e.target.closest("tr");
-    if (targetRow && targetRow !== draggingShortcutRow) {
+    if (targetRow && draggingWidgetRow && targetRow !== draggingWidgetRow) {
       const rect = targetRow.getBoundingClientRect();
       const next = (e.clientY - rect.top) / (rect.bottom - rect.top) > 0.5;
-      shortcutsTableBody.insertBefore(
-        draggingShortcutRow,
+      widgetList.insertBefore(
+        draggingWidgetRow,
         (next && targetRow.nextSibling) || targetRow,
       );
     }
   });
+  widgetList.addEventListener("drop", (e) => e.preventDefault());
 
-  shortcutsTableBody.addEventListener("drop", (e) => {
-    e.preventDefault();
-  });
-
-  // Make rows draggable
-  shortcutsTableBody
-    .querySelectorAll("tr")
-    .forEach((row) => row.setAttribute("draggable", "true"));
-
-  const selectElem = document.querySelector(
-    "#bookmark-folder-selector-span select",
-  );
-
-  const allOption = document.createElement("option");
-  allOption.value = "";
-  allOption.text = "All";
-  allOption.selected = !settings["bookmarkFolder"];
-  selectElem.append(allOption);
-
-  chrome.bookmarks.getTree((tree) => {
-    tree[0].children.forEach((folder) => {
-      const optionElem = document.createElement("option");
-      optionElem.value = optionElem.text = folder.title;
-      optionElem.selected = settings["bookmarkFolder"] === folder.title;
-      selectElem.append(optionElem);
+  document
+    .getElementById("use-custom-city")
+    .addEventListener("change", (e) => {
+      document.getElementById("custom-city-container").style.display = e.target
+        .checked
+        ? "block"
+        : "none";
+      if (!e.target.checked) {
+        // Clear custom city value when unchecked to revert to geolocation.
+        document.getElementById("custom-city").value = "";
+      }
     });
+
+  document.getElementById("custom-city").addEventListener("input", () => {
+    // When the user types, invalidate the cached weather for the old city.
+    localStorage.removeItem("weatherData");
   });
 
-  // Back link navigation
-  document.getElementById("back-link").addEventListener("click", () => {
-    chrome.tabs.update({ url: "chrome://newtab" });
-  });
+  // Handle background image preview
+  const bgPreview = document.getElementById("background-preview");
+  const imagePresentContainer = document.getElementById(
+    "image-present-container",
+  );
+  const bgAddLabel = document.getElementById("background-add-label");
+  const clearBgButton = document.getElementById("clear-background-image");
 
-  // Navigate back when pressing Escape
+  if (settings.backgroundImage) {
+    bgPreview.src = settings.backgroundImage;
+    bgPreview.classList.remove("hidden");
+    imagePresentContainer.classList.remove("hidden");
+    bgAddLabel.classList.add("hidden");
+    clearBgButton.classList.remove("hidden");
+  } else {
+    bgPreview.classList.add("hidden");
+    imagePresentContainer.classList.add("hidden");
+    bgAddLabel.classList.remove("hidden");
+    clearBgButton.classList.add("hidden");
+  }
+
+  // Back link navigation — prefer going back in history (the options page is
+  // opened in the same tab as the new tab page); fall back to chrome APIs.
+  function closeOptions() {
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+    if (typeof chrome !== "undefined" && chrome.tabs && chrome.tabs.update) {
+      chrome.tabs.update({ url: "chrome://newtab" });
+    } else {
+      window.location.href = "../newtab/index.html";
+    }
+  }
+
+  // Close button (×) at the top of the page.
+  document.getElementById("back-link").addEventListener("click", closeOptions);
+
+  // Close when pressing Escape
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       e.preventDefault();
-      chrome.tabs.update({ url: "chrome://newtab" });
+      closeOptions();
     }
   });
 
   let saveBtn = document.getElementById("save");
   saveBtn.addEventListener("click", () => {
     let settings_obj = {};
+    let weatherCacheDirty = false;
     settings_keys.map((key) => {
-      if (key == "topRightOrder") {
-        let orderArr = [];
-        const tbody = document.querySelector("table#top-right-links tbody");
-        let trs = tbody.children;
-        for (var i = 0; i < trs.length; i++) {
-          let tr = tbody.children[i];
-          let trType = tr.querySelector("td input").getAttribute("data-key");
-          let checkedBool = tr.querySelector("td input").checked;
-          orderArr.push({
-            id: trType,
-            displayBool: checkedBool,
-            url:
-              trType == "passwords"
-                ? "chrome://password-manager/passwords"
-                : "chrome://" + trType,
-          });
-        }
-        settings_obj["topRightOrder"] = orderArr;
-      } else if (key == "bookmarkFolder") {
-        settings_obj[key] = document.querySelector(
-          "#bookmark-folder-selector-span select",
-        ).value;
-      } else if (key == "expandBookmarks") {
-        settings_obj[key] = document.getElementById("expand-bookmarks").checked;
-      } else if (key == "selectedPixelArt") {
-        settings_obj[key] = document.querySelector("#pixel-art-select").value;
-      } else if (key == "customSVG") {
-        settings_obj[key] = document.querySelector("#custom-svg-input").value;
-      } else if (
-        [
-          "pixelArtOpacity",
-          "pixelArtDensity",
-          "pixelArtColorDark",
-          "pixelArtColorLight",
-        ].includes(key)
-      ) {
-        settings_obj[key] = document.getElementById(key).value;
-      } else if (key == "customCity") {
-        settings_obj[key] = document.getElementById("custom-city").value;
-        if (document.getElementById("custom-city").value) {
-          localStorage.removeItem("weatherData");
-        }
-      } else if (key == "useCustomCity") {
-        settings_obj[key] = document.getElementById("use-custom-city").checked;
-        if (
-          settings_obj[key] !== settings.useCustomCity ||
-          settings_obj.customCity !== settings.customCity
-        ) {
-          localStorage.removeItem("weatherData");
-        }
-      } else if (key === "tempUnit") {
-        settings_obj[key] = document.querySelector(
-          'input[name="temp-unit"]:checked',
-        ).value;
-      } else if (key === "theme") {
+      if (key === "theme") {
         const selectedTheme = document.querySelector(
           'input[name="theme"]:checked',
         ).value;
         localStorage.setItem("theme", selectedTheme);
-      } else if (key === "sidebarPosition") {
-        settings_obj[key] = document.querySelector(
-          'input[name="sidebar-position"]:checked',
-        ).value;
-      } else if (key === "sidebarExpanded") {
-        settings_obj[key] = document.getElementById(
-          "sidebar-expanded-check",
-        ).checked;
-      } else if (key === "sidebarWidgets") {
-        const widgetRows = document.querySelectorAll("#sidebar-widgets tr");
-        const selectedWidgets = [];
-        widgetRows.forEach((row) => {
-          const input = row.querySelector("input");
-          if (input && input.checked) {
-            selectedWidgets.push(
-              input.getAttribute("data-widget"),
-            );
-          }
-        });
-        settings_obj[key] = selectedWidgets;
-      } else if (key === "availableWidgets") {
-        const currentAvail = settings.availableWidgets || defaultSettings.availableWidgets;
-        settings_obj[key] = Array.from(new Set([...currentAvail, ...defaultSettings.availableWidgets]));
-
+        settings_obj[key] = selectedTheme;
       } else if (key === "backgroundImage") {
         settings_obj[key] = settings.backgroundImage || "";
-      } else if (key === "useUnsplash") {
-        settings_obj[key] = document.getElementById("use-unsplash").checked;
-        if (settings_obj[key]) {
-          settings_obj["backgroundImage"] = "";
-        }
-      } else if (key === "unsplashApiKey") {
-        settings_obj[key] = document
-          .getElementById("unsplash-api-key")
-          .value.trim();
-      } else if (key === "unsplashUpdateFrequency") {
-        settings_obj[key] = document.getElementById(
-          "unsplash-update-frequency",
-        ).value;
-        localStorage.removeItem("unsplashData");
-      } else if (key === "showUnsplashRefresh") {
-        settings_obj[key] = document.getElementById(
-          "show-unsplash-refresh",
-        ).checked;
-      } else if (key === "customCSS") {
-        // Sanitize: remove </style> tags to prevent breaking out of style block
-        const rawCSS = document.getElementById("custom-css").value;
-        settings_obj[key] = rawCSS.replace(/<\/style>/gi, "");
-      } else if (key === "enableKeyboardNav") {
-        settings_obj[key] = document.getElementById(
-          "enable-keyboard-nav",
-        ).checked;
-      } else if (key === "enableBangs") {
-        settings_obj[key] = document.getElementById("enable-bangs").checked;
-      } else if (key === "openInNewTab") {
-        settings_obj[key] = document.getElementById("open-in-new-tab").checked;
-      } else if (key === "defaultSearchEngine") {
-        settings_obj[key] = document.getElementById("default-search-engine").value;
       } else if (key === "clockFormat") {
-        const radio = document.querySelector(
-          'input[name="clock-format"]:checked',
+        const sel = document.querySelector('input[name="clock-format"]:checked');
+        settings_obj[key] = sel ? sel.value : settings[key];
+      } else if (key === "tempUnit") {
+        const sel = document.querySelector('input[name="temp-unit"]:checked');
+        settings_obj[key] = sel ? sel.value : settings[key];
+      } else if (key === "useCustomCity") {
+        settings_obj[key] = document.getElementById("use-custom-city").checked;
+        if (
+          settings_obj[key] !== settings.useCustomCity ||
+          document.getElementById("custom-city").value !== settings.customCity
+        ) {
+          // City or source changed: the cached forecast is stale.
+          weatherCacheDirty = true;
+        }
+      } else if (key === "customCity") {
+        settings_obj[key] = document.getElementById("custom-city").value;
+      } else if (key === "sidebarPosition") {
+        const sel = document.querySelector(
+          'input[name="sidebar-position"]:checked',
         );
-        settings_obj[key] = radio ? radio.value : "24h";
-      } else {
-        settings_obj[key] = document.getElementById("show-" + key).checked;
-      }
-    });
-    localStorage.setItem("settings", JSON.stringify(settings_obj));
-    if (settings_obj.useUnsplash) {
-      localStorage.removeItem("unsplashData");
-    }
-    showNotification("Settings Saved!", 2000, "success", false);
-  });
-
-  const cityInput = document.getElementById("custom-city");
-  const suggestionsContainer = document.getElementById("city-suggestions");
-
-  unsplashApiKeyInput.addEventListener("input", toggleUnsplashAdvancedOptions);
-  // When the 'keep sidebar expanded' option changes, enforce customize-button dependency
-  const sidebarExpandedCheck = document.getElementById(
-    "sidebar-expanded-check",
-  );
-  if (sidebarExpandedCheck) {
-    sidebarExpandedCheck.addEventListener("change", () => {
-      // updateCustomizeDependency is defined above during initialization
-      try {
-        updateCustomizeDependency();
-      } catch (e) {
-        /* noop if not available */
-      }
-    });
-  }
-
-  document.getElementById("use-unsplash").addEventListener("change", (e) => {
-    document.getElementById("unsplash-options").style.display = e.target.checked
-      ? "block"
-      : "none";
-    toggleUnsplashAdvancedOptions();
-  });
-
-  const onCityInput = debounce(async (e) => {
-    const query = e.target.value;
-    const suggestions = await fetchCitySuggestions(query);
-    suggestionsContainer.innerHTML = "";
-    if (suggestions && suggestions.length > 0) {
-      suggestions.forEach((suggestion) => {
-        const div = document.createElement("div");
-        div.textContent = suggestion;
-        div.addEventListener("click", () => {
-          cityInput.value = suggestion;
-          suggestionsContainer.style.display = "none";
-          suggestionsContainer.innerHTML = "";
+        settings_obj[key] = sel ? sel.value : settings[key];
+      } else if (key === "sidebarWidgets") {
+        const selected = [];
+        document.querySelectorAll("#sidebar-widgets tr").forEach((row) => {
+          const input = row.querySelector("input");
+          if (input && input.checked) {
+            selected.push(input.getAttribute("data-widget"));
+          }
         });
-        suggestionsContainer.appendChild(div);
-      });
-      suggestionsContainer.style.display = "block";
-    } else {
-      suggestionsContainer.style.display = "none";
-    }
-  }, 300);
-
-  cityInput.addEventListener("input", onCityInput);
-
-  // Hide suggestions when clicking outside
-  document.addEventListener("click", (e) => {
-    if (!document.getElementById("city-search-container").contains(e.target)) {
-      suggestionsContainer.style.display = "none";
-    }
-  });
-
-  const navLinks = document.querySelectorAll(".options-sidebar nav a");
-  const panels = document.querySelectorAll(".options-panel");
-
-  navLinks.forEach((link) => {
-    link.addEventListener("click", (e) => {
-      e.preventDefault();
-      const targetId = link.getAttribute("href").substring(1);
-
-      navLinks.forEach((navLink) => navLink.classList.remove("active"));
-      panels.forEach((panel) => panel.classList.remove("active"));
-
-      link.classList.add("active");
-      document.getElementById(targetId).classList.add("active");
+        settings_obj[key] = selected;
+      } else {
+        // Key with no UI on this page: keep the stored value.
+        settings_obj[key] = settings[key] !== undefined ? settings[key] : defaultSettings[key];
+      }
     });
-  });
-
-  const widgetList = document.getElementById("sidebar-widgets");
-  let draggingElement = null;
-
-  widgetList.addEventListener("dragstart", (e) => {
-    const row = e.target.closest("tr");
-    if (row) {
-      draggingElement = row;
-      e.dataTransfer.effectAllowed = "move";
-      row.classList.add("dragging");
-    }
-  });
-
-  widgetList.addEventListener("dragend", (e) => {
-    if (draggingElement) {
-      draggingElement.classList.remove("dragging");
-      draggingElement = null;
-    }
-  });
-
-  widgetList.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    const targetRow = e.target.closest("tr");
-    if (targetRow && targetRow !== draggingElement) {
-      const rect = targetRow.getBoundingClientRect();
-      const next = (e.clientY - rect.top) / (rect.bottom - rect.top) > 0.5;
-      widgetList.insertBefore(
-        draggingElement,
-        (next && targetRow.nextSibling) || targetRow,
-      );
-    }
-  });
-
-  widgetList.addEventListener("drop", (e) => {
-    e.preventDefault();
+    if (weatherCacheDirty) localStorage.removeItem("weatherData");
+    localStorage.setItem("settings", JSON.stringify(settings_obj));
+    showNotification("Settings Saved!", 2000, "success", false);
   });
 
   document.querySelectorAll('input[name="theme"]').forEach((radio) => {
@@ -791,13 +276,41 @@ document.addEventListener("DOMContentLoaded", () => {
   document
     .getElementById("background-image-input")
     .addEventListener("change", (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          settings.backgroundImage = event.target.result;
-          localStorage.setItem("settings", JSON.stringify(settings));
-          bgPreview.src = event.target.result;
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const objectUrl = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        try {
+          // Downscale to a sane wallpaper size before storing: full-size
+          // photos exceed the localStorage quota as base64 and silently
+          // failed to save before.
+          const maxDim = 1920;
+          const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.max(1, Math.round(img.width * scale));
+          canvas.height = Math.max(1, Math.round(img.height * scale));
+          const ctx = canvas.getContext("2d");
+          ctx.imageSmoothingQuality = "high";
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+
+          settings.backgroundImage = dataUrl;
+          try {
+            localStorage.setItem("settings", JSON.stringify(settings));
+          } catch (quotaErr) {
+            settings.backgroundImage = "";
+            e.target.value = "";
+            showNotification(
+              "Image too large to store. Try a smaller file.",
+              3000,
+              "restore",
+            );
+            return;
+          }
+
+          bgPreview.src = dataUrl;
           imagePresentContainer.classList.remove("hidden");
           bgPreview.classList.remove("hidden");
           bgAddLabel.classList.add("hidden");
@@ -806,11 +319,20 @@ document.addEventListener("DOMContentLoaded", () => {
             "Background image saved. It will appear on the new tab page.",
             3000,
             "success",
-            false,
           );
-        };
-        reader.readAsDataURL(file);
-      }
+        } catch (err) {
+          showNotification("Could not process that image.", 3000, "restore");
+        }
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        showNotification(
+          "That file could not be read as an image.",
+          3000,
+          "restore",
+        );
+      };
+      img.src = objectUrl;
     });
 
   document
@@ -828,28 +350,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 });
 
-document.getElementById("show-weather").addEventListener("change", (e) => {
-  document
-    .getElementById("weather-options")
-    .classList.toggle("disabled", !e.target.checked);
-});
-
-document.getElementById("use-custom-city").addEventListener("change", (e) => {
-  document.getElementById("custom-city-container").style.display = e.target
-    .checked
-    ? "block"
-    : "none";
-  if (!e.target.checked) {
-    // Clear custom city value when unchecked to revert to geolocation
-    document.getElementById("custom-city").value = "";
-  }
-});
-
-document.getElementById("custom-city").addEventListener("input", () => {
-  // When user types, invalidate weather cache
-  localStorage.removeItem("weatherData");
-});
-
 document.getElementById("restore-defaults").addEventListener("click", () => {
   localStorage.removeItem("settings");
   localStorage.setItem("settings", JSON.stringify(defaultSettings));
@@ -860,44 +360,6 @@ document.getElementById("restore-defaults").addEventListener("click", () => {
     true,
   );
 });
-
-document.getElementById("open-shortcuts").addEventListener("click", (e) => {
-  e.preventDefault();
-  chrome.tabs.create({ url: "chrome://extensions/shortcuts" });
-});
-
-document.getElementById("show-bookmarks").onchange = (e) => {
-  document
-    .querySelector("#bookmark-folder-selector-span")
-    .classList.toggle("disabled", !e.target.checked);
-};
-
-document.getElementById("show-topRight").onchange = (e) => {
-  document
-    .querySelector("#shortcuts-links")
-    .classList.toggle("disabled", !e.target.checked);
-};
-
-document.getElementById("show-pixelArt").onchange = (e) => {
-  document
-    .querySelector("#pixel-art-select-div")
-    .classList.toggle("disabled", !e.target.checked);
-};
-
-document.getElementById("pixel-art-select").onchange = (e) => {
-  let selectedPixelArt = e.target.value;
-  if (selectedPixelArt == "custom") {
-    document.getElementById("custom-svg-input-div").style.display = "block";
-  } else {
-    document.getElementById("custom-svg-input-div").style.display = "none";
-  }
-};
-
-document.getElementById("show-sidebar").onchange = (e) => {
-  document
-    .querySelector("#sidebar-options")
-    .classList.toggle("disabled", !e.target.checked);
-};
 
 let theme = localStorage.getItem("theme") || "system";
 
@@ -915,61 +377,11 @@ function applyTheme(theme) {
       document.body.classList.add("light");
     }
   }
-  updateOptionsPixelArtColor();
 }
-
-function getContrastTextColor(hexColor) {
-  if (!hexColor) return '#ffffff';
-  let hex = hexColor.trim();
-  if (hex.startsWith('#')) hex = hex.slice(1);
-  if (hex.length === 3) {
-    hex = hex.split('').map(c => c + c).join('');
-  }
-  const r = parseInt(hex.substring(0, 2), 16) || 0;
-  const g = parseInt(hex.substring(2, 4), 16) || 0;
-  const b = parseInt(hex.substring(4, 6), 16) || 0;
-  const yiq = (r * 299 + g * 587 + b * 114) / 1000;
-  return yiq >= 128 ? '#121212' : '#ffffff';
-}
-
-function updateOptionsPixelArtColor() {
-  const isDark = document.body.classList.contains("dark");
-  const darkInput = document.getElementById("pixelArtColorDark");
-  const lightInput = document.getElementById("pixelArtColorLight");
-  const color = isDark ? (darkInput?.value || "#cccccc") : (lightInput?.value || "#b04288");
-  document.body.style.setProperty("--pixel-art-color", color);
-  document.documentElement.style.setProperty("--pixel-art-color", color);
-  document.body.style.setProperty("--color-accent", color);
-  document.documentElement.style.setProperty("--color-accent", color);
-
-  const contrastColor = getContrastTextColor(color);
-  document.body.style.setProperty("--color-accent-text", contrastColor);
-  document.documentElement.style.setProperty("--color-accent-text", contrastColor);
-}
-
-document.getElementById("pixelArtColorDark")?.addEventListener("input", updateOptionsPixelArtColor);
-document.getElementById("pixelArtColorLight")?.addEventListener("input", updateOptionsPixelArtColor);
 
 applyTheme(theme);
 
 
-// Update About icons based on theme (light/dark/system)
-function updateAboutIcons() {
-  const webstoreImg = document.getElementById("webstore-img");
-  const githubImg = document.getElementById("github-img");
-  if (!webstoreImg || !githubImg) return;
-
-  let effective = theme;
-  if (theme === "system") {
-    effective = window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light";
-  }
-
-  webstoreImg.src = `../../assets/favicons/chromewebstore-${effective}.png`;
-  githubImg.src = `../../assets/favicons/github-${effective}.png`;
-}
-updateAboutIcons();
 
 window
   .matchMedia("(prefers-color-scheme: dark)")
@@ -978,231 +390,3 @@ window
       applyTheme("system");
     }
   });
-
-// Keep About icons in sync when system theme changes while in 'system' mode
-window
-  .matchMedia("(prefers-color-scheme: dark)")
-  .addEventListener("change", (e) => {
-    if (theme === "system") {
-      try {
-        updateAboutIcons();
-      } catch (err) {
-        /* ignore */
-      }
-    }
-  });
-
-// Easter egg: clicking on the app icon or title 10 times redirects to YouTube
-(function () {
-  const CLICK_TARGET = 10;
-  let clickCount = 0;
-  const logo = document.getElementById("about-logo");
-  const title = document.getElementById("about-title");
-
-  function incrementAndMaybeRedirect() {
-    clickCount++;
-    if (clickCount >= CLICK_TARGET) {
-      // Open YouTube (navigate current tab) as the easter egg destination
-      chrome.tabs.create({
-        url: "https://music.youtube.com/playlist?list=PLK_7F5FZ-_UQvmcztt2X7qMYOSGIH31Hc&si=BwTs_LOMzIQskPP7",
-      });
-      // try {
-      //     window.location.href = 'https://www.youtube.com/';
-      // } catch (e) {
-      //     window.open('https://www.youtube.com/', '_blank');
-
-      // }
-    }
-  }
-
-  [logo, title].forEach((el) => {
-    if (!el) return;
-    el.addEventListener("click", incrementAndMaybeRedirect);
-    el.addEventListener("keydown", (e) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        incrementAndMaybeRedirect();
-      }
-    });
-  });
-})();
-
-// Export settings to JSON file
-document.getElementById("export-settings").addEventListener("click", () => {
-  const storedSettings = JSON.parse(localStorage.getItem("settings") || "{}");
-  // Merge with defaults to ensure all keys are included in export
-  const settings = { ...defaultSettings, ...storedSettings };
-
-  // Also preserve custom bookmark colors, todo list, and theme
-  const bookmarkColors = JSON.parse(localStorage.getItem("bookmark-colors") || "{}");
-  const todoList = JSON.parse(localStorage.getItem("sidebar-todo-list") || "[]");
-  const theme = localStorage.getItem("theme") || "system";
-
-  const exportPayload = {
-    ...settings,
-    _bookmarkColors: bookmarkColors,
-    _todoList: todoList,
-    _theme: theme,
-  };
-
-  const dataStr = JSON.stringify(exportPayload, null, 2);
-  const blob = new Blob([dataStr], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "minimal-newtab-settings.json";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showNotification("Settings exported successfully!", 2000, "success");
-});
-
-// Import settings from JSON file
-document.getElementById("import-settings").addEventListener("click", () => {
-  document.getElementById("import-file").click();
-});
-
-function handleImportFile(file) {
-  if (!file) return;
-
-  // Check file type
-  if (file.type !== "application/json" && !file.name.endsWith(".json")) {
-    showNotification(
-      "Invalid file type. Please use a .json file.",
-      3000,
-      "error",
-    );
-    return;
-  }
-
-  // Check file size (max 1MB)
-  if (file.size > 1024 * 1024) {
-    showNotification("File too large. Maximum size is 1MB.", 3000, "error");
-    return;
-  }
-
-  const reader = new FileReader();
-  reader.onload = (event) => {
-    try {
-      let importedSettings;
-      try {
-        importedSettings = JSON.parse(event.target.result);
-      } catch (parseError) {
-        showNotification(
-          "Invalid JSON format. File may be corrupted.",
-          3000,
-          "error",
-        );
-        return;
-      }
-
-      // Validate that it's an object
-      if (
-        typeof importedSettings !== "object" ||
-        importedSettings === null ||
-        Array.isArray(importedSettings)
-      ) {
-        showNotification(
-          "Invalid settings format. Expected a settings object.",
-          3000,
-          "error",
-        );
-        return;
-      }
-
-      // Check if it looks like a settings file (has at least one known key)
-      const knownKeys = [
-        "clock",
-        "clockFormat",
-        "weather",
-        "bookmarks",
-        "theme",
-        "topRight",
-        "pixelArt",
-        "sidebar",
-      ];
-      const hasKnownKey = knownKeys.some((key) =>
-        importedSettings.hasOwnProperty(key),
-      );
-      if (!hasKnownKey) {
-        showNotification(
-          "This doesn't appear to be a valid settings file.",
-          3000,
-          "error",
-        );
-        return;
-      }
-
-      // Restore custom bookmark colors, todo list, and theme if present
-      if (importedSettings._bookmarkColors && typeof importedSettings._bookmarkColors === "object") {
-        localStorage.setItem("bookmark-colors", JSON.stringify(importedSettings._bookmarkColors));
-      }
-      if (importedSettings._todoList && Array.isArray(importedSettings._todoList)) {
-        localStorage.setItem("sidebar-todo-list", JSON.stringify(importedSettings._todoList));
-      }
-      if (importedSettings._theme && typeof importedSettings._theme === "string") {
-        localStorage.setItem("theme", importedSettings._theme);
-      }
-
-      // Merge with default settings to ensure all keys exist
-      const mergedSettings = { ...defaultSettings, ...importedSettings };
-
-      localStorage.setItem("settings", JSON.stringify(mergedSettings));
-      showNotification(
-        "Settings imported successfully! Reloading...",
-        2000,
-        "success",
-        true,
-      );
-    } catch (error) {
-      console.error("Error importing settings:", error);
-      showNotification(
-        "Error importing settings. Please try again.",
-        3000,
-        "error",
-      );
-    }
-  };
-  reader.onerror = () => {
-    showNotification("Error reading file. Please try again.", 3000, "error");
-  };
-  reader.readAsText(file);
-}
-
-document.getElementById("import-file").addEventListener("change", (e) => {
-  handleImportFile(e.target.files[0]);
-  // Reset the input so the same file can be selected again
-  e.target.value = "";
-});
-
-// Drag and drop support for import button and drop zone
-const importButton = document.getElementById("import-settings");
-const dropZone = document.getElementById("import-drop-zone");
-const dropTargets = [importButton, dropZone];
-
-dropTargets.forEach((target) => {
-  target.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dropZone.classList.add("drag-over");
-    importButton.classList.add("drag-over");
-  });
-
-  target.addEventListener("dragleave", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dropZone.classList.remove("drag-over");
-    importButton.classList.remove("drag-over");
-  });
-
-  target.addEventListener("drop", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    dropZone.classList.remove("drag-over");
-    importButton.classList.remove("drag-over");
-
-    const file = e.dataTransfer.files[0];
-    handleImportFile(file);
-  });
-});

@@ -1,9 +1,10 @@
 import { renderClock } from "../../components/clock/clock.js";
 import { renderWeather } from "../../components/weather/weather.js";
 import { renderBookmarks } from "../../components/bookmarks/bookmarks.js";
-import { renderTopRight } from "../../components/topRight/topRight.js";
 import { renderSidebar } from "../../components/sidebar/sidebar.js";
-import { renderUnsplashBackground } from "../../components/unsplash/unsplash.js";
+import { initNavigationHelper } from "../../shared/navigation-helper.js";
+
+initNavigationHelper();
 
 if (localStorage.getItem("settings") === null) {
   localStorage.setItem("settings", JSON.stringify(defaultSettings));
@@ -12,217 +13,146 @@ if (localStorage.getItem("settings") === null) {
 // Initialize theme
 let theme = localStorage.getItem("theme") || "system";
 
-document.addEventListener("DOMContentLoaded", () => {
+function initTheme() {
   document.body.style.backgroundColor = null;
   applyTheme(theme);
-});
+}
 
-const settings =
-  JSON.parse(localStorage.getItem("settings")) || defaultSettings;
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initTheme);
+} else {
+  initTheme();
+}
+
+let storedSettings = {};
+try {
+  storedSettings = JSON.parse(localStorage.getItem("settings")) || {};
+} catch (e) {
+  storedSettings = {};
+}
+// Stored keys win, but missing keys fall back to the current defaults so
+// older settings stores pick up newly added options automatically.
+const settings = { ...defaultSettings, ...storedSettings };
+
+// settings_keys that the app no longer knows (old top-right links, pixel
+// art, Unsplash, keyboard nav, bangs/search, custom CSS): strip them from
+// the store once so user data stays tidy.
+const KNOWN_KEYS = new Set(Object.keys(defaultSettings));
+const removedKeys = Object.keys(settings).filter((k) => !KNOWN_KEYS.has(k));
+if (removedKeys.length) {
+  removedKeys.forEach((k) => delete settings[k]);
+  localStorage.setItem("settings", JSON.stringify(settings));
+}
+
+// Widget defaults: calendar + history are checked by default. Apply once
+// per store (flag lives outside "settings" so options saves can't drop it)
+// so users who untoggle them later are not re-opted-in on every load.
+if (!localStorage.getItem("widgetsV2Applied")) {
+  const w = Array.isArray(settings.sidebarWidgets) ? settings.sidebarWidgets : [];
+  settings.sidebarWidgets = Array.from(new Set([...w, "calendar", "history"]));
+  localStorage.setItem("settings", JSON.stringify(settings));
+  localStorage.setItem("widgetsV2Applied", "1");
+}
+
+// Bundled default icons: apply once per store so seeded/existing bookmarks
+// show their shipped icons without waiting for favicon services. Only empty
+// iconUrls are filled — anything the user set themselves always wins, and
+// one-time means later clearing a bookmark's icon stays cleared.
+if (!localStorage.getItem("defaultIconsApplied") && window.BMColumns) {
+  try {
+    const HOST_ICONS = {
+      "messenger.com": "../../assets/icons/messenger.png",
+      "web.telegram.org": "../../assets/icons/telegram.png",
+      "web.whatsapp.com": "../../assets/icons/whatsapp.png",
+      "miyomi.app": "../../assets/icons/miyomi.webp",
+      "psarips.com": "../../assets/icons/psa.png",
+      "github.com": "../../assets/icons/github.png",
+      "vercel.com": "../../assets/icons/vercel.png",
+      "mail.google.com": "../../assets/icons/gmail.png",
+      "docs.google.com": "../../assets/icons/google-docs.png",
+      "keep.google.com": "../../assets/icons/google-keep.png",
+      "drive.google.com": "../../assets/icons/google-drive.png",
+      "photos.google.com": "../../assets/icons/google-photos.png"
+    };
+    const normalizeHost = (h) => (h || "").toLowerCase().replace(/^www\./, "");
+    const cols = window.BMColumns.get();
+    let changed = false;
+    cols.forEach((col) => (col.items || []).forEach((it) => {
+      if (it.iconUrl) return;
+      let host = "";
+      try { host = normalizeHost(new URL(it.url).hostname); } catch {}
+      const icon = HOST_ICONS[host];
+      if (icon) {
+        it.iconUrl = icon;
+        changed = true;
+      }
+    }));
+    if (changed) window.BMColumns.save(cols);
+    localStorage.setItem("defaultIconsApplied", "1");
+  } catch (e) {}
+}
+
+/* Icon follow-up: the play-button asset belongs to FMHY, not YouTube.
+   One-time: clear the mis-mapped bundled icon so YouTube falls back to its
+   normal favicon again, and stamp the play button onto FMHY (only when the
+   slot is empty — user-set icons always win). */
+if (!localStorage.getItem("defaultIconsV2Applied") && window.BMColumns) {
+  try {
+    const normalizeHost = (h) => (h || "").toLowerCase().replace(/^www\./, "");
+    const cols = window.BMColumns.get();
+    let changed = false;
+    cols.forEach((col) => (col.items || []).forEach((it) => {
+      if (it.iconUrl && it.iconUrl.indexOf("/assets/icons/youtube.png") !== -1) {
+        it.iconUrl = "";
+        changed = true;
+      }
+      let host = "";
+      try { host = normalizeHost(new URL(it.url).hostname); } catch {}
+      if (host.indexOf("fmhy") === 0 && !it.iconUrl) {
+        it.iconUrl = "../../assets/icons/fmhy.png";
+        changed = true;
+      }
+    }));
+    if (changed) window.BMColumns.save(cols);
+    localStorage.setItem("defaultIconsV2Applied", "1");
+  } catch (e) {}
+}
 
 const isSidebarLeft = settings.sidebarPosition === "left";
 document.body.classList.toggle("sidebar-left", isSidebarLeft);
 document.body.classList.toggle("sidebar-right", !isSidebarLeft);
 
-// Apply custom CSS if provided
-if (settings.customCSS) {
-  const styleElement = document.createElement("style");
-  styleElement.id = "user-custom-css";
-  styleElement.textContent = settings.customCSS;
-  document.head.appendChild(styleElement);
-}
-
-if (settings.useUnsplash) {
-  renderUnsplashBackground(settings);
-} else if (settings.backgroundImage) {
+// Custom background image (Unsplash support was removed). Applied with the
+// transition suppressed so the wallpaper is there from the first paint —
+// no 1s fade on every new tab.
+if (settings.backgroundImage) {
+  document.body.style.transition = "none";
   document.body.style.backgroundImage = `url(${settings.backgroundImage})`;
+  document.body.style.backgroundSize = "cover";
+  document.body.style.backgroundPosition = "center";
+  requestAnimationFrame(() => {
+    document.body.style.transition = "";
+  });
   analyzeAndSetTextColor(settings.backgroundImage);
 }
 
-if (settings.useUnsplash || settings.backgroundImage) {
-  document.body.style.backgroundSize = "cover";
-  document.body.style.backgroundPosition = "center";
-}
+// Clock and weather live in the sidebar and are always on.
+renderClock();
+renderWeather(settings);
 
-if (settings.topRight) {
-  renderTopRight(settings);
-} else {
-  document.getElementById("top-right").style.display = "none";
-}
+// Bookmark columns are always on.
+window.renderBookmarks = () => renderBookmarks(settings);
+renderBookmarks(settings);
 
-if (settings.clock) {
-  renderClock();
-} else {
-  document.getElementById("clock").style.display = "none";
-}
-
-if (settings.weather) {
-  renderWeather(settings);
-} else {
-  document.getElementById("weather").style.display = "none";
-}
-
-if (settings.bookmarks) {
-  window.renderBookmarks = () => renderBookmarks(settings);
-  renderBookmarks(settings);
-} else {
-  document.getElementById("shortcuts").style.display = "none";
-}
-
-// Quick nav: show number hints when modifier key is held
-function setupQuickNav() {
-  if (typeof chrome === "undefined" || !chrome.commands || !chrome.commands.getAll) return;
-  if (!settings.enableKeyboardNav) return;
-
-  chrome.commands.getAll((commands) => {
-    const toggleCommand = commands.find((cmd) => cmd.name === "toggle-overlay");
-    if (!toggleCommand || !toggleCommand.shortcut) return;
-
-    const shortcut = toggleCommand.shortcut;
-    let modifierKey = null;
-
-    if (shortcut.includes("Alt") || shortcut.includes("⌥")) {
-      modifierKey = "Alt";
-    } else if (shortcut.includes("Ctrl") || shortcut.includes("⌃")) {
-      modifierKey = "Control";
-    } else if (shortcut.includes("Meta") || shortcut.includes("⌘") || shortcut.includes("Command")) {
-      modifierKey = "Meta";
-    }
-
-    if (!modifierKey) return;
-
-    let modifierHeld = false;
-    let modifierTimeout = null;
-    const shortcutsContainer = document.getElementById("shortcuts");
-
-    function getVisibleLinks() {
-      if (!shortcutsContainer) return [];
-      return Array.from(shortcutsContainer.querySelectorAll("a.shortcut")).filter((item) => {
-        let parent = item.parentElement;
-        while (parent && parent !== shortcutsContainer) {
-          if (parent.classList.contains("collapsed")) return false;
-          parent = parent.parentElement;
-        }
-        return true;
-      });
-    }
-
-    function showHints() {
-      if (shortcutsContainer && shortcutsContainer.classList.contains("command-mode")) return;
-      const links = getVisibleLinks();
-      links.slice(0, 10).forEach((link, index) => {
-        const hint = document.createElement("span");
-        hint.className = "number-hint";
-        hint.textContent = index === 9 ? "0" : (index + 1).toString();
-        link.appendChild(hint);
-      });
-      document.body.classList.add("keyboard-hints");
-    }
-
-    function hideHints() {
-      if (!shortcutsContainer || !shortcutsContainer.classList.contains("command-mode")) {
-        document.querySelectorAll(".shortcut > .number-hint").forEach((el) => el.remove());
-      }
-      document.body.classList.remove("keyboard-hints");
-    }
-
-    function navigateByNumber(num) {
-      if (shortcutsContainer && shortcutsContainer.classList.contains("command-mode")) return;
-      const index = num === "0" ? 9 : parseInt(num, 10) - 1;
-      const links = getVisibleLinks();
-      if (index >= 0 && index < links.length && links[index]) {
-        const url = links[index].href;
-        if (url) {
-          if (settings.openInNewTab) {
-            window.open(url, "_blank");
-          } else {
-            window.location.href = url;
-          }
-        }
-      }
-    }
-
-    document.addEventListener("keydown", (e) => {
-      if (shortcutsContainer && shortcutsContainer.classList.contains("command-mode")) return;
-
-      if (e.key === modifierKey && !e.repeat) {
-        e.preventDefault();
-        modifierHeld = true;
-        modifierTimeout = setTimeout(() => {
-          if (modifierHeld) showHints();
-        }, 400);
-        return;
-      }
-
-      if (modifierHeld && e.code.startsWith("Digit")) {
-        e.preventDefault();
-        navigateByNumber(e.code.replace("Digit", ""));
-      }
-    });
-
-    document.addEventListener("keyup", (e) => {
-      if (e.key === modifierKey) {
-        modifierHeld = false;
-        if (modifierTimeout) {
-          clearTimeout(modifierTimeout);
-          modifierTimeout = null;
-        }
-        hideHints();
-      }
-    });
-
-    window.addEventListener("blur", () => {
-      if (modifierHeld) {
-        modifierHeld = false;
-        if (modifierTimeout) {
-          clearTimeout(modifierTimeout);
-          modifierTimeout = null;
-        }
-        hideHints();
-      }
-    });
-  });
-}
-
-setupQuickNav();
-
-if (settings.sidebar) {
-  renderSidebar(settings);
-}
-
-if (settings.unsplashApiKey && settings.showUnsplashRefresh) {
-  document
-    .getElementById("refresh-background")
-    .addEventListener("click", () => {
-      renderUnsplashBackground(settings, true);
-    });
-}
-
-document.getElementById("customize").addEventListener("click", () => {
-  location.href = "../options/options.html";
-});
-
-// Handle toggle click
-document.querySelector(".theme-toggle").addEventListener("click", () => {
-  if (theme === "system") {
-    theme = "dark";
-  } else if (theme === "dark") {
-    theme = "light";
-  } else {
-    theme = "system";
-  }
-
-  localStorage.setItem("theme", theme);
-  applyTheme(theme);
-});
+// The sidebar is a permanent fixture: clock, weather, widgets and the
+// Customize entry live there.
+renderSidebar(settings);
 
 // React to system theme change if in system mode
 window
   .matchMedia("(prefers-color-scheme: dark)")
-  .addEventListener("change", (e) => {
+  .addEventListener("change", () => {
     if (theme === "system") {
-      document.addEventListener("DOMContentLoaded", () => {
-        applyTheme(theme);
-      });
+      applyTheme("system");
     }
   });

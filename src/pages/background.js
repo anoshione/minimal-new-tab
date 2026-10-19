@@ -1,32 +1,3 @@
-let overlayVisible = false;
-
-chrome.commands.onCommand.addListener((command) => {
-  if (command === "toggle-overlay") {
-    toggleOverlay();
-  } else if (command === "open-options") {
-    chrome.tabs.create({ url: "pages/options/options.html" });
-  }
-});
-
-async function toggleOverlay() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab) return;
-
-  if (overlayVisible) {
-    chrome.tabs.sendMessage(tab.id, { action: "hideOverlay" });
-    overlayVisible = false;
-  } else {
-    chrome.tabs.sendMessage(tab.id, { action: "showOverlay" });
-    overlayVisible = true;
-  }
-}
-
-chrome.tabs.onRemoved.addListener(() => {
-  overlayVisible = false;
-});
-
-chrome.runtime.onMessage.addListener((message) => {
-  if (message.action === "overlayHidden") {
-    overlayVisible = false;
-  }
-});
+// No background service worker needed: the keyboard-navigation overlay and
+// its commands were removed with the rest of the search stack. Kept as a
+// placeholder so the build layout stays predictable.

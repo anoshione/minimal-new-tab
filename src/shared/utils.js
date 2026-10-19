@@ -1,39 +1,16 @@
-function loadStylesheet(filename) {
-  const link = document.createElement("link");
-  link.rel = "stylesheet";
-  link.href = filename; // e.g., 'styles.css' or 'theme.css'
-  document.head.appendChild(link);
-}
-
 function applyTheme(theme) {
   document.body.classList.remove("dark", "light");
-  if (theme === "dark") {
-    document.body.classList.add("dark");
-  } else if (theme === "light") {
-    document.body.classList.add("light");
-  } else {
-    if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-      document.body.classList.add("dark");
-    } else {
-      document.body.classList.add("light");
-    }
-  }
+  document.documentElement.classList.remove("dark", "light");
+  const isDark = theme === "dark" || (theme !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const themeClass = isDark ? "dark" : "light";
+  document.body.classList.add(themeClass);
+  document.documentElement.classList.add(themeClass);
 
+  // Theme indicators are optional (e.g. sidebar footer); tolerate absence.
   const iconContainer = document.querySelector(".theme-icon");
   const label = document.querySelector(".theme-label");
-  iconContainer.innerHTML = icons[theme];
-  label.textContent = theme[0].toUpperCase() + theme.slice(1);
-
-  const customizeContainer = document.querySelector(".customize-icon");
-  if (theme == "system") {
-    if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-      customizeContainer.innerHTML = customizeIcon["dark"];
-    } else {
-      customizeContainer.innerHTML = customizeIcon["light"];
-    }
-  } else {
-    customizeContainer.innerHTML = customizeIcon[theme];
-  }
+  if (iconContainer) iconContainer.innerHTML = icons[theme];
+  if (label) label.textContent = theme[0].toUpperCase() + theme.slice(1);
 }
 
 function analyzeAndSetTextColor(imageUrl) {

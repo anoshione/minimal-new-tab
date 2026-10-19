@@ -1,71 +1,10 @@
-import { distributeColumns } from './bookmarks.js';
+/*
+ * Modal + popover helpers for editing bookmark columns and their items.
+ * Used together with bookmarks.js (which re-renders via window.renderBookmarks).
+ */
 
-const STORAGE_KEY = 'bookmark-colors';
-
-// Curated palette of colors chosen for great legibility and vibrant contrast in both dark and light modes
-export const COLOR_PALETTE = [
-    { label: 'Red', hex: '#ef4444' },
-    { label: 'Orange', hex: '#f97316' },
-    { label: 'Amber', hex: '#f59e0b' },
-    { label: 'Green', hex: '#22c55e' },
-    { label: 'Emerald', hex: '#10b981' },
-    { label: 'Cyan', hex: '#06b6d4' },
-    { label: 'Blue', hex: '#3b82f6' },
-    { label: 'Indigo', hex: '#6366f1' },
-    { label: 'Purple', hex: '#a855f7' },
-    { label: 'Pink', hex: '#ec4899' },
-];
-
-export function getBookmarkColors() {
-    try {
-        const data = localStorage.getItem(STORAGE_KEY);
-        return data ? JSON.parse(data) : {};
-    } catch {
-        return {};
-    }
-}
-
-export function getBookmarkColor(id) {
-    if (!id) return null;
-    const colors = getBookmarkColors();
-    return colors[String(id)] || null;
-}
-
-export function setBookmarkColor(id, hexColor) {
-    if (!id) return;
-    const colors = getBookmarkColors();
-    if (hexColor && hexColor.trim()) {
-        colors[String(id)] = hexColor.trim();
-    } else {
-        delete colors[String(id)];
-    }
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(colors));
-    } catch (e) {
-        console.error('Failed to save bookmark color', e);
-    }
-}
-
-export function applyColorToElement(element, color) {
-    if (!element) return;
-    if (color) {
-        element.style.color = color;
-        element.style.textDecorationColor = color;
-    } else {
-        element.style.color = '';
-        element.style.textDecorationColor = '';
-    }
-}
-
-let activeContextMenu = null;
 let activeModalOverlay = null;
-
-function closeContextMenu() {
-    if (activeContextMenu && activeContextMenu.parentNode) {
-        activeContextMenu.parentNode.removeChild(activeContextMenu);
-    }
-    activeContextMenu = null;
-}
+let activePopover = null;
 
 function closeModal() {
     if (activeModalOverlay && activeModalOverlay.parentNode) {
@@ -74,451 +13,435 @@ function closeModal() {
     activeModalOverlay = null;
 }
 
-// Global click and escape listener to dismiss context menu
-document.addEventListener('click', (e) => {
-    if (activeContextMenu && !activeContextMenu.contains(e.target)) {
-        closeContextMenu();
+function closePopover() {
+    if (activePopover && activePopover.parentNode) {
+        activePopover.parentNode.removeChild(activePopover);
     }
-});
+    activePopover = null;
 
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
+    if (popoverOutsideHandler) {
+        document.removeEventListener("click", popoverOutsideHandler, true);
+        popoverOutsideHandler = null;
+    }
+}
+
+let popoverOutsideHandler = null;
+
+function refresh() {
+    if (window.renderBookmarks) window.renderBookmarks();
+}
+
+function normalizeUrl(value) {
+    const raw = (value || "").trim();
+    if (!raw) return "";
+    return /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(raw) ? raw : "https://" + raw;
+}
+
+function hostnameName(url) {
+    try {
+        const u = new URL(normalizeUrl(url));
+        const host = u.hostname.replace(/^www\./, "");
+        return host ? host.split(".")[0].replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : (url || "Bookmark");
+    } catch {
+        return url || "Bookmark";
+    }
+}
+
+/* Image processing -------------------------------------------------------- *
+ * Uploaded images are re-encoded on a canvas so localStorage stays small:
+ *  - icons: contained square, transparent-friendly PNG.
+ *  - backgrounds: center-cropped to the banner ratio, JPEG quality 0.82.
+ */
+
+function renderProcessedImage(img, spec, sourceType) {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
+    if (spec.mode === "icon") {
+        const size = spec.size || 128;
+        canvas.width = size;
+        canvas.height = size;
+        const scale = Math.min(size / img.width, size / img.height);
+        const w = img.width * scale;
+        const h = img.height * scale;
+        ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+        return canvas.toDataURL("image/png");
+    }
+
+    // Background: cover-crop to the stored banner ratio, then scale down.
+    const w = spec.w || 720;
+    const h = spec.h || 240;
+    canvas.width = w;
+    canvas.height = h;
+    const cropScale = Math.max(w / img.width, h / img.height);
+    const cw = w / cropScale;
+    const ch = h / cropScale;
+    ctx.drawImage(img, (img.width - cw) / 2, (img.height - ch) / 2, cw, ch, 0, 0, w, h);
+    const mime = sourceType === "image/png" ? "image/png" : "image/jpeg";
+    return canvas.toDataURL(mime, 0.82);
+}
+
+function processImageFile(file, spec) {
+    return new Promise((resolve, reject) => {
+        if (!file || !file.type || !file.type.startsWith("image/")) {
+            reject(new Error("Not an image file"));
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+            const img = new Image();
+            img.onload = () => {
+                try {
+                    resolve(renderProcessedImage(img, spec, file.type));
+                } catch (err) {
+                    reject(err instanceof Error ? err : new Error("Could not process image"));
+                }
+            };
+            img.onerror = () => reject(new Error("Could not decode image"));
+            img.src = reader.result;
+        };
+        reader.onerror = () => reject(new Error("Could not read file"));
+        reader.readAsDataURL(file);
+    });
+}
+
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
         if (activeModalOverlay) {
             closeModal();
             e.stopPropagation();
-        } else if (activeContextMenu) {
-            closeContextMenu();
+        } else if (activePopover) {
+            closePopover();
             e.stopPropagation();
         }
     }
 });
 
-window.addEventListener('resize', () => {
-    closeContextMenu();
-});
+window.addEventListener("resize", closePopover);
 
-export function openContextMenu(e, itemData) {
-    e.preventDefault();
-    e.stopPropagation();
-    closeContextMenu();
-
-    const { id, title, url, isFolder, element, inheritedColor } = itemData;
-    const currentColor = getBookmarkColor(id);
-
-    const menu = document.createElement('div');
-    menu.className = 'bookmark-context-menu';
-
-    // Header info
-    const header = document.createElement('div');
-    header.className = 'bookmark-context-header';
-    header.textContent = isFolder ? 'Folder' : 'Bookmark';
-    menu.appendChild(header);
-
-    // Edit Item option
-    const editBtn = document.createElement('button');
-    editBtn.type = 'button';
-    editBtn.className = 'bookmark-context-item';
-    editBtn.innerHTML = `<span class="icon">✎</span><span>Edit ${isFolder ? 'Folder' : 'Bookmark'}</span>`;
-    editBtn.addEventListener('click', () => {
-        closeContextMenu();
-        openEditModal(itemData);
-    });
-    menu.appendChild(editBtn);
-
-    // Color swatches label
-    const colorLabel = document.createElement('div');
-    colorLabel.className = 'bookmark-context-subheading';
-    colorLabel.textContent = 'Text Color';
-    menu.appendChild(colorLabel);
-
-    // Color swatches container
-    const colorsRow = document.createElement('div');
-    colorsRow.className = 'bookmark-context-colors';
-
-    // Default / Clear dot
-    const clearDot = document.createElement('button');
-    clearDot.type = 'button';
-    clearDot.className = `bookmark-color-dot clear-dot ${!currentColor ? 'selected' : ''}`;
-    clearDot.title = 'Default theme color';
-    clearDot.innerHTML = '<span>×</span>';
-    clearDot.addEventListener('click', () => {
-        setBookmarkColor(id, null);
-        applyColorToElement(element, inheritedColor || '');
-        closeContextMenu();
-        if (isFolder) {
-            refreshFolderAndChildren(id);
-        }
-    });
-    colorsRow.appendChild(clearDot);
-
-    // Palette dots
-    COLOR_PALETTE.forEach(({ label, hex }) => {
-        const dot = document.createElement('button');
-        dot.type = 'button';
-        dot.className = `bookmark-color-dot ${currentColor === hex ? 'selected' : ''}`;
-        dot.style.backgroundColor = hex;
-        dot.title = label;
-        dot.addEventListener('click', () => {
-            setBookmarkColor(id, hex);
-            applyColorToElement(element, hex);
-            closeContextMenu();
-            if (isFolder) {
-                refreshFolderAndChildren(id);
-            }
-        });
-        colorsRow.appendChild(dot);
-    });
-
-    menu.appendChild(colorsRow);
-
-    // If a custom color is already set, provide a direct text button to reset it
-    if (currentColor) {
-        const resetBtn = document.createElement('button');
-        resetBtn.type = 'button';
-        resetBtn.className = 'bookmark-context-item danger';
-        resetBtn.innerHTML = `<span class="icon">↺</span><span>Reset Color</span>`;
-        resetBtn.addEventListener('click', () => {
-            setBookmarkColor(id, null);
-            applyColorToElement(element, inheritedColor || '');
-            closeContextMenu();
-            if (isFolder) {
-                refreshFolderAndChildren(id);
-            }
-        });
-        menu.appendChild(resetBtn);
-    }
-
-    document.body.appendChild(menu);
-    activeContextMenu = menu;
-
-    // Position menu safely within viewport
-    const menuWidth = 200;
-    const menuHeight = 210;
-    let posX = e.clientX;
-    let posY = e.clientY;
-
-    if (posX + menuWidth > window.innerWidth - 10) {
-        posX = window.innerWidth - menuWidth - 10;
-    }
-    if (posY + menuHeight > window.innerHeight - 10) {
-        posY = window.innerHeight - menuHeight - 10;
-    }
-    if (posX < 10) posX = 10;
-    if (posY < 10) posY = 10;
-
-    menu.style.left = `${posX}px`;
-    menu.style.top = `${posY}px`;
-}
-
-export function openEditModal(itemData) {
-    closeContextMenu();
+/*
+ * openFormModal({
+ *   title, fields: [{ key, label, value, placeholder, type }],
+ *   submitText, cancelText, dangerText, onSubmit(values, done), onDanger()
+ * })
+ */
+export function openFormModal({ title, fields, submitText = "Save", cancelText = "Cancel", dangerText = null, onSubmit = null, onDanger = null }) {
     closeModal();
+    closePopover();
 
-    const { id, isFolder, element, inheritedColor } = itemData;
-    let currentTitle = itemData.title || '';
-    let currentUrl = itemData.url || '';
-    if (element) {
-        if (isFolder) {
-            const titleSpan = element.querySelector('span:last-child');
-            if (titleSpan) currentTitle = titleSpan.textContent.trim();
-        } else {
-            const textSpan = element.querySelector('span:not(.number-hint)');
-            if (textSpan) currentTitle = textSpan.textContent.trim();
-            if (element.href) currentUrl = element.href;
-        }
-    }
-    let selectedColor = getBookmarkColor(id) || '';
+    const overlay = document.createElement("div");
+    overlay.className = "bookmark-edit-overlay";
 
-    const overlay = document.createElement('div');
-    overlay.className = 'bookmark-edit-overlay';
+    const modal = document.createElement("div");
+    modal.className = "bookmark-edit-modal";
 
-    const modal = document.createElement('div');
-    modal.className = 'bookmark-edit-modal';
-
-    // Header
-    const header = document.createElement('div');
-    header.className = 'bookmark-edit-header';
-    const heading = document.createElement('h3');
-    heading.textContent = isFolder ? 'Edit Folder' : 'Edit Bookmark';
-    const closeBtn = document.createElement('button');
-    closeBtn.type = 'button';
-    closeBtn.className = 'bookmark-edit-close';
-    closeBtn.innerHTML = '&times;';
-    closeBtn.setAttribute('aria-label', 'Close');
-    closeBtn.addEventListener('click', closeModal);
+    const header = document.createElement("div");
+    header.className = "bookmark-edit-header";
+    const heading = document.createElement("h3");
+    heading.textContent = title;
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.className = "bookmark-edit-close";
+    closeBtn.innerHTML = "&times;";
+    closeBtn.setAttribute("aria-label", "Close");
+    closeBtn.addEventListener("click", closeModal);
     header.appendChild(heading);
     header.appendChild(closeBtn);
     modal.appendChild(header);
 
-    // Live preview
-    const previewContainer = document.createElement('div');
-    previewContainer.className = 'bookmark-preview-container';
-    const previewLabel = document.createElement('div');
-    previewLabel.className = 'bookmark-edit-label';
-    previewLabel.textContent = 'Preview';
-    const previewItem = document.createElement('div');
-    previewItem.className = 'bookmark-preview-item';
-    const previewText = document.createElement('span');
-    previewText.className = 'preview-text';
-    previewText.textContent = currentTitle || (isFolder ? 'Folder' : 'Bookmark');
-    previewItem.appendChild(previewText);
+    const inputs = {};
+    fields.forEach(field => {
+        const wrap = document.createElement("div");
+        wrap.className = "bookmark-edit-field";
+        const label = document.createElement("label");
+        label.textContent = field.label;
+        const input = document.createElement("input");
+        input.type = field.type || "text";
+        input.className = "bookmark-edit-input";
+        input.id = "bm-field-" + field.key;
+        input.value = field.value || "";
+        input.placeholder = field.placeholder || "";
+        inputs[field.key] = input;
+        wrap.appendChild(label);
 
-    function updatePreview() {
-        previewText.textContent = titleInput.value.trim() || (isFolder ? 'Folder' : 'Bookmark');
-        const effective = selectedColor || inheritedColor || '';
-        if (effective) {
-            previewItem.style.color = effective;
-            previewItem.style.textDecorationColor = effective;
+        if (field.image) {
+            // Image field: URL input, upload button with canvas resize, preview.
+            wrap.classList.add("bm-field-image");
+
+            const preview = document.createElement("img");
+            preview.className = "bm-preview hidden";
+            preview.alt = "";
+            preview.decoding = "async";
+            const refreshPreview = () => {
+                const value = input.value.trim();
+                if (value) {
+                    preview.src = value;
+                    preview.classList.remove("hidden");
+                } else {
+                    preview.removeAttribute("src");
+                    preview.classList.add("hidden");
+                }
+            };
+            preview.addEventListener("error", () => preview.classList.add("hidden"));
+            preview.addEventListener("load", () => {
+                if (preview.getAttribute("src")) preview.classList.remove("hidden");
+            });
+            input.addEventListener("change", refreshPreview);
+            refreshPreview();
+
+            const fileInput = document.createElement("input");
+            fileInput.type = "file";
+            fileInput.accept = "image/*,.ico,image/x-icon";
+            fileInput.style.display = "none";
+
+            const status = document.createElement("span");
+            status.className = "bm-upload-status";
+
+            const uploadBtn = document.createElement("button");
+            uploadBtn.type = "button";
+            uploadBtn.className = "bm-upload-btn";
+            uploadBtn.textContent = "Upload";
+            uploadBtn.addEventListener("click", () => fileInput.click());
+            fileInput.addEventListener("change", async () => {
+                const file = fileInput.files && fileInput.files[0];
+                if (!file) return;
+                status.textContent = "Resizing…";
+                try {
+                    const dataURL = await processImageFile(file, field.image);
+                    input.value = dataURL;
+                    refreshPreview();
+                    const kb = Math.round((dataURL.length * 0.75) / 1024);
+                    status.textContent = "Resized to ~" + kb + " KB";
+                } catch (err) {
+                    status.textContent = (err && err.message) || "Upload failed";
+                }
+                fileInput.value = "";
+            });
+
+            const row = document.createElement("div");
+            row.className = "bm-field-row";
+            row.appendChild(preview);
+            row.appendChild(input);
+            row.appendChild(uploadBtn);
+
+            // Optional per-bookmark action (e.g. "Refresh icon"): runs against
+            // the saved bookmark without closing or saving the modal.
+            if (field.refresh) {
+                const refreshBtn = document.createElement("button");
+                refreshBtn.type = "button";
+                refreshBtn.className = "bm-upload-btn";
+                refreshBtn.textContent = "Refresh icon";
+                refreshBtn.addEventListener("click", () => {
+                    const original = field.refreshLabel || refreshBtn.textContent;
+                    refreshBtn.disabled = true;
+                    status.textContent = "Refreshing…";
+                    try {
+                        field.refresh();
+                        refreshPreview();
+                        status.textContent = "Icon refreshed";
+                    } catch (err) {
+                        status.textContent = (err && err.message) || "Refresh failed";
+                    }
+                    refreshBtn.disabled = false;
+                });
+                row.appendChild(refreshBtn);
+            }
+
+            wrap.appendChild(row);
+            wrap.appendChild(fileInput);
+            wrap.appendChild(status);
         } else {
-            previewItem.style.color = '';
-            previewItem.style.textDecorationColor = '';
+            wrap.appendChild(input);
         }
-    }
-
-    previewContainer.appendChild(previewLabel);
-    previewContainer.appendChild(previewItem);
-    modal.appendChild(previewContainer);
-
-    // Title field
-    const titleField = document.createElement('div');
-    titleField.className = 'bookmark-edit-field';
-    const titleLabel = document.createElement('label');
-    titleLabel.textContent = 'Title';
-    const titleInput = document.createElement('input');
-    titleInput.type = 'text';
-    titleInput.className = 'bookmark-edit-input';
-    titleInput.value = currentTitle;
-    titleInput.placeholder = 'Title...';
-    titleInput.addEventListener('input', updatePreview);
-    titleField.appendChild(titleLabel);
-    titleField.appendChild(titleInput);
-    modal.appendChild(titleField);
-
-    // URL field (only for links)
-    let urlInput = null;
-    if (!isFolder) {
-        const urlField = document.createElement('div');
-        urlField.className = 'bookmark-edit-field';
-        const urlLabel = document.createElement('label');
-        urlLabel.textContent = 'URL';
-        urlInput = document.createElement('input');
-        urlInput.type = 'text';
-        urlInput.className = 'bookmark-edit-input';
-        urlInput.value = currentUrl;
-        urlInput.placeholder = 'https://...';
-        urlField.appendChild(urlLabel);
-        urlField.appendChild(urlInput);
-        modal.appendChild(urlField);
-    }
-
-    // Text Color field
-    const colorField = document.createElement('div');
-    colorField.className = 'bookmark-edit-field';
-    const colorLabel = document.createElement('label');
-    colorLabel.textContent = 'Text Color';
-    colorField.appendChild(colorLabel);
-
-    const swatchesWrapper = document.createElement('div');
-    swatchesWrapper.className = 'bookmark-color-swatches';
-
-    // Default swatch
-    const defaultSwatch = document.createElement('button');
-    defaultSwatch.type = 'button';
-    defaultSwatch.className = `bookmark-color-swatch default-swatch ${!selectedColor ? 'active' : ''}`;
-    defaultSwatch.title = 'Default theme color';
-    defaultSwatch.innerHTML = '<span>Default</span>';
-    defaultSwatch.addEventListener('click', () => {
-        selectedColor = '';
-        modal.querySelectorAll('.bookmark-color-swatch').forEach(s => s.classList.remove('active'));
-        defaultSwatch.classList.add('active');
-        updatePreview();
+        modal.appendChild(wrap);
     });
-    swatchesWrapper.appendChild(defaultSwatch);
 
-    // Palette swatches
-    COLOR_PALETTE.forEach(({ label, hex }) => {
-        const swatch = document.createElement('button');
-        swatch.type = 'button';
-        swatch.className = `bookmark-color-swatch ${selectedColor.toLowerCase() === hex.toLowerCase() ? 'active' : ''}`;
-        swatch.style.backgroundColor = hex;
-        swatch.title = label;
-        swatch.addEventListener('click', () => {
-            selectedColor = hex;
-            modal.querySelectorAll('.bookmark-color-swatch').forEach(s => s.classList.remove('active'));
-            swatch.classList.add('active');
-            updatePreview();
+    const actions = document.createElement("div");
+    actions.className = "bookmark-edit-actions";
+
+    if (dangerText) {
+        const dangerBtn = document.createElement("button");
+        dangerBtn.type = "button";
+        dangerBtn.className = "bookmark-edit-btn danger";
+        dangerBtn.textContent = dangerText;
+        dangerBtn.addEventListener("click", () => {
+            closeModal();
+            if (onDanger) onDanger();
+            refresh();
         });
-        swatchesWrapper.appendChild(swatch);
-    });
+        actions.appendChild(dangerBtn);
+    }
 
-    // Custom color picker input
-    const customColorContainer = document.createElement('label');
-    customColorContainer.className = 'bookmark-color-picker-label';
-    customColorContainer.title = 'Custom color';
+    const spacer = document.createElement("span");
+    spacer.className = "bookmark-edit-actions-spacer";
+    actions.appendChild(spacer);
 
-    const customColorInput = document.createElement('input');
-    customColorInput.type = 'color';
-    customColorInput.className = 'bookmark-custom-color-input';
-    customColorInput.value = selectedColor || '#ffffff';
+    const cancelBtn = document.createElement("button");
+    cancelBtn.type = "button";
+    cancelBtn.className = "bookmark-edit-btn cancel";
+    cancelBtn.textContent = cancelText;
+    cancelBtn.addEventListener("click", closeModal);
 
-    const customIcon = document.createElement('span');
-    customIcon.className = 'custom-color-icon';
-    customIcon.innerHTML = '+';
-
-    customColorInput.addEventListener('input', (e) => {
-        selectedColor = e.target.value;
-        modal.querySelectorAll('.bookmark-color-swatch').forEach(s => s.classList.remove('active'));
-        customColorContainer.classList.add('active');
-        customColorContainer.style.borderColor = selectedColor;
-        updatePreview();
-    });
-
-    customColorContainer.appendChild(customColorInput);
-    customColorContainer.appendChild(customIcon);
-    swatchesWrapper.appendChild(customColorContainer);
-
-    colorField.appendChild(swatchesWrapper);
-    modal.appendChild(colorField);
-
-    // Actions (Cancel, Save)
-    const actions = document.createElement('div');
-    actions.className = 'bookmark-edit-actions';
-
-    const cancelBtn = document.createElement('button');
-    cancelBtn.type = 'button';
-    cancelBtn.className = 'bookmark-edit-btn cancel';
-    cancelBtn.textContent = 'Cancel';
-    cancelBtn.addEventListener('click', closeModal);
-
-    const saveBtn = document.createElement('button');
-    saveBtn.type = 'button';
-    saveBtn.className = 'bookmark-edit-btn save';
-    saveBtn.textContent = 'Save';
+    const submitBtn = document.createElement("button");
+    submitBtn.type = "button";
+    submitBtn.className = "bookmark-edit-btn save";
+    submitBtn.textContent = submitText;
 
     function handleSave() {
-        const newTitle = titleInput.value.trim();
-        const newUrl = urlInput ? urlInput.value.trim() : null;
-
-        if (!newTitle) {
-            titleInput.focus();
-            return;
-        }
-
-        // 1. Update color in storage
-        setBookmarkColor(id, selectedColor);
-
-        // 2. Update Chrome bookmark via API
-        if (typeof chrome !== 'undefined' && chrome.bookmarks && chrome.bookmarks.update) {
-            const updateDetails = { title: newTitle };
-            if (!isFolder && newUrl) {
-                updateDetails.url = newUrl;
-            }
-            chrome.bookmarks.update(id, updateDetails, () => {
-                // Bookmark updated in Chrome
-            });
-        }
-
-        // 3. Update DOM representation immediately
-        if (isFolder) {
-            const titleSpan = element.querySelector('span:last-child');
-            if (titleSpan) {
-                titleSpan.textContent = ` ${newTitle}`;
-            }
-            applyColorToElement(element, selectedColor || inheritedColor || '');
-            refreshFolderAndChildren(id);
-        } else {
-            const textSpan = element.querySelector('span:not(.number-hint)');
-            if (textSpan) {
-                textSpan.textContent = newTitle;
-            }
-            if (newUrl) {
-                element.href = newUrl;
-            }
-            applyColorToElement(element, selectedColor || inheritedColor || '');
-        }
-
+        const values = {};
+        Object.keys(inputs).forEach(key => {
+            values[key] = inputs[key].value.trim();
+        });
+        if (onSubmit && onSubmit(values) === false) return;
         closeModal();
-
-        // Re-balance columns in case title length altered wrapping/height
-        distributeColumns();
-        requestAnimationFrame(() => distributeColumns());
+        refresh();
     }
 
-    saveBtn.addEventListener('click', handleSave);
-
-    actions.appendChild(cancelBtn);
-    actions.appendChild(saveBtn);
-    modal.appendChild(actions);
-
-    overlay.appendChild(modal);
-    overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) {
-            closeModal();
-        }
-    });
-
-    // Keyboard support inside modal
-    modal.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
+    submitBtn.addEventListener("click", handleSave);
+    modal.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
             e.preventDefault();
             handleSave();
         }
     });
 
+    actions.appendChild(cancelBtn);
+    actions.appendChild(submitBtn);
+    modal.appendChild(actions);
+
+    overlay.appendChild(modal);
+    overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) closeModal();
+    });
     document.body.appendChild(overlay);
     activeModalOverlay = overlay;
 
-    updatePreview();
-
-    requestAnimationFrame(() => {
-        titleInput.focus();
-        titleInput.select();
-    });
+    const focusField = fields.find(f => f.autofocus) || fields[0];
+    if (focusField && inputs[focusField.key]) {
+        requestAnimationFrame(() => {
+            inputs[focusField.key].focus();
+            inputs[focusField.key].select();
+        });
+    }
 }
 
-function refreshFolderAndChildren(folderId) {
-    const folderColor = getBookmarkColor(folderId);
-    const folderItem = document.querySelector(`.bookmark-folder-item[data-bookmark-id="${folderId}"]`);
-    if (!folderItem) return;
-
-    const childrenContainer = folderItem.querySelector('.bookmark-children');
-    if (!childrenContainer) return;
-
-    const childLinks = childrenContainer.querySelectorAll('.bookmark-link-item');
-    childLinks.forEach(linkItem => {
-        const childId = linkItem.dataset.bookmarkId;
-        const ownColor = getBookmarkColor(childId);
-        const a = linkItem.querySelector('a.shortcut');
-        if (a && !ownColor) {
-            applyColorToElement(a, folderColor || '');
+export function openBookmarkModal({ colId, item = null }) {
+    const isEdit = Boolean(item);
+    openFormModal({
+        title: isEdit ? "Edit Bookmark" : "Add Bookmark",
+        fields: [
+            { key: "name", label: "Name", value: isEdit ? item.name : "", placeholder: "Site name", autofocus: true },
+            { key: "url", label: "URL", value: isEdit ? item.url : "", placeholder: "https://..." },
+            {
+                key: "bannerUrl",
+                label: "Background image (URL or upload, optional)",
+                value: isEdit ? item.bannerUrl : "",
+                placeholder: "Empty = blurred icon background",
+                image: { mode: "banner", w: 720, h: 240 }
+            },
+            {
+                key: "iconUrl",
+                label: "Icon image (URL or upload, optional)",
+                value: isEdit ? item.iconUrl : "",
+                placeholder: "Empty = auto favicon",
+                image: { mode: "icon", size: 128 },
+                // Edit mode only: re-fetch this bookmark's favicon on demand.
+                refresh: isEdit
+                    ? () => {
+                          window.BMColumns.updateItem(colId, item.id, { iconBust: Date.now() });
+                          refresh();
+                      }
+                    : null
+            }
+        ],
+        submitText: isEdit ? "Save" : "Add",
+        dangerText: isEdit ? "Delete" : null,
+        onSubmit(values) {
+            const url = normalizeUrl(values.url);
+            if (!url) {
+                const urlInput = document.getElementById("bm-field-url");
+                if (urlInput) urlInput.focus();
+                return false;
+            }
+            const name = values.name || hostnameName(url);
+            if (isEdit) {
+                window.BMColumns.updateItem(colId, item.id, { ...values, url, name });
+            } else {
+                window.BMColumns.addItem(colId, { ...values, url, name });
+            }
+        },
+        onDanger() {
+            if (isEdit) window.BMColumns.removeItem(colId, item.id);
         }
     });
 }
 
-export function initBookmarkItem(element, node, isFolder, inheritedColor = null) {
-    if (!element || !node) return;
+export function openColumnModal({ column = null }) {
+    const isEdit = Boolean(column);
+    openFormModal({
+        title: isEdit ? "Edit Column" : "New Column",
+        fields: [
+            { key: "name", label: "Column name", value: isEdit ? column.name : "New Column", placeholder: "e.g. Social", autofocus: true }
+        ],
+        submitText: isEdit ? "Save" : "Add",
+        dangerText: isEdit ? "Delete" : null,
+        onSubmit(values) {
+            const name = values.name || (isEdit ? column.name : "New Column");
+            if (isEdit) {
+                window.BMColumns.updateColumn(column.id, { name });
+            } else {
+                window.BMColumns.addColumn(name);
+            }
+        },
+        onDanger() {
+            if (isEdit) window.BMColumns.removeColumn(column.id);
+        }
+    });
+}
 
-    const id = node.id;
-    element.dataset.bookmarkId = id;
+/*
+ * Small anchored popover, items: [{ label, danger, fn }]
+ */
+export function openPopover(anchorEl, items) {
+    closePopover();
 
-    // Apply color: individual color takes precedence over inherited folder color
-    const ownColor = getBookmarkColor(id);
-    const effectiveColor = ownColor || inheritedColor || null;
-    if (effectiveColor) {
-        applyColorToElement(element, effectiveColor);
+    const rect = anchorEl.getBoundingClientRect();
+    const menu = document.createElement("div");
+    menu.className = "bm-pop";
+
+    items.forEach(action => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "bm-pop-item" + (action.danger ? " danger" : "");
+        btn.textContent = action.label;
+        btn.addEventListener("click", () => {
+            closePopover();
+            if (action.fn) action.fn();
+            refresh();
+        });
+        menu.appendChild(btn);
+    });
+
+    document.body.appendChild(menu);
+    activePopover = menu;
+
+    // Defer the outside-click closer so the click that opened this popover
+    // (which is still bubbling/done dispatching later) doesn't close it at once.
+    popoverOutsideHandler = (e) => {
+        if (!menu.contains(e.target)) closePopover();
+    };
+    setTimeout(() => document.addEventListener("click", popoverOutsideHandler, true), 0);
+
+    const popWidth = 160;
+    const popHeight = menu.offsetHeight || items.length * 30;
+
+    let x = rect.right - popWidth;
+    if (x < 8) x = 8;
+    let y = rect.bottom + 6;
+    if (y + popHeight > window.innerHeight - 8) {
+        y = Math.max(8, rect.top - popHeight - 6);
     }
 
-    const itemData = {
-        id,
-        title: node.title || (isFolder ? 'Untitled folder' : (node.url || '')),
-        url: node.url || '',
-        isFolder: Boolean(isFolder),
-        element,
-        inheritedColor,
-    };
-
-    // Right-click context menu
-    element.addEventListener('contextmenu', (e) => {
-        openContextMenu(e, itemData);
-    });
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
 }

@@ -1,3 +1,5 @@
+import { navigateTo } from '../shared/navigation-helper.js';
+
 export function renderHistory() {
     const widgetWrapper = document.createElement('div');
     widgetWrapper.className = 'history-widget';
@@ -5,6 +7,27 @@ export function renderHistory() {
     const title = document.createElement('h3');
     title.textContent = 'History';
     widgetWrapper.appendChild(title);
+
+    const searchContainer = document.createElement('div');
+    searchContainer.className = 'history-search-container';
+
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.className = 'history-search-input';
+    searchInput.placeholder = 'Search history...';
+    searchInput.setAttribute('aria-label', 'Search history');
+
+    const clearBtn = document.createElement('button');
+    clearBtn.type = 'button';
+    clearBtn.className = 'history-search-clear';
+    clearBtn.innerHTML = '&times;';
+    clearBtn.title = 'Clear search';
+    clearBtn.setAttribute('aria-label', 'Clear search');
+    clearBtn.style.display = 'none';
+
+    searchContainer.appendChild(searchInput);
+    searchContainer.appendChild(clearBtn);
+    widgetWrapper.appendChild(searchContainer);
 
     const historyList = document.createElement('ul');
     historyList.className = 'history-list';
@@ -26,21 +49,99 @@ export function renderHistory() {
 
         a.addEventListener('click', (e) => {
             e.preventDefault();
-            const settings = JSON.parse(localStorage.getItem('settings') || '{}');
-            if (settings.openInNewTab) {
-                if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
-                    chrome.tabs.create({ url: item.url });
-                } else {
-                    window.open(item.url, '_blank');
-                }
-            } else {
-                window.location.href = item.url;
-            }
+            navigateTo(item.url);
         });
 
         li.appendChild(a);
         return li;
     }
+
+    let defaultRecentItems = [];
+
+    function filterValidItems(results) {
+        const seenUrls = new Set();
+        const validItems = [];
+        for (const item of (results || [])) {
+            if (!item.url || seenUrls.has(item.url)) continue;
+            if (item.url.startsWith('chrome-extension://') || item.url.startsWith('chrome://newtab')) continue;
+            seenUrls.add(item.url);
+            validItems.push(item);
+        }
+        return validItems;
+    }
+
+    function renderList(items, isSearch = false) {
+        historyList.innerHTML = '';
+        if (!items || items.length === 0) {
+            const empty = document.createElement('li');
+            empty.className = 'history-empty';
+            empty.style.opacity = '0.6';
+            empty.style.padding = '8px 4px';
+            empty.style.fontSize = '0.9em';
+            empty.textContent = isSearch ? 'No matching history found' : 'No recent history';
+            historyList.appendChild(empty);
+            return;
+        }
+
+        items.forEach(item => {
+            historyList.appendChild(createHistoryItem(item));
+        });
+    }
+
+    function searchHistory(query) {
+        if (!query) {
+            renderList(defaultRecentItems, false);
+            return;
+        }
+
+        if (typeof chrome !== 'undefined' && chrome.history && chrome.history.search) {
+            chrome.history.search({ text: query, maxResults: 100, startTime: 0 }, (results) => {
+                if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.lastError) {
+                    console.warn("History search error:", chrome.runtime.lastError);
+                    return;
+                }
+                const validItems = filterValidItems(results);
+                renderList(validItems, true);
+            });
+        } else {
+            const queryLower = query.toLowerCase();
+            const filtered = defaultRecentItems.filter(item =>
+                (item.title && item.title.toLowerCase().includes(queryLower)) ||
+                (item.url && item.url.toLowerCase().includes(queryLower))
+            );
+            renderList(filtered, true);
+        }
+    }
+
+    let debounceTimer = null;
+    searchInput.addEventListener('input', () => {
+        const query = searchInput.value.trim();
+        clearBtn.style.display = searchInput.value.length > 0 ? 'flex' : 'none';
+        clearTimeout(debounceTimer);
+        if (!query) {
+            renderList(defaultRecentItems, false);
+            return;
+        }
+        debounceTimer = setTimeout(() => {
+            searchHistory(query);
+        }, 150);
+    });
+
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && searchInput.value) {
+            e.stopPropagation();
+            searchInput.value = '';
+            clearBtn.style.display = 'none';
+            renderList(defaultRecentItems, false);
+        }
+    });
+
+    clearBtn.addEventListener('click', () => {
+        searchInput.value = '';
+        clearBtn.style.display = 'none';
+        renderList(defaultRecentItems, false);
+        searchInput.focus();
+    });
 
     if (typeof chrome !== 'undefined' && chrome.history && chrome.history.search) {
         chrome.history.search({ text: '', maxResults: 1000, startTime: 0 }, (results) => {
@@ -48,31 +149,10 @@ export function renderHistory() {
                 console.warn("History error:", chrome.runtime.lastError);
                 return;
             }
-            historyList.innerHTML = '';
-            const seenUrls = new Set();
-            const validItems = [];
-
-            for (const item of (results || [])) {
-                if (!item.url || seenUrls.has(item.url)) continue;
-                if (item.url.startsWith('chrome-extension://') || item.url.startsWith('chrome://newtab')) continue;
-                seenUrls.add(item.url);
-                validItems.push(item);
+            defaultRecentItems = filterValidItems(results);
+            if (!searchInput.value.trim()) {
+                renderList(defaultRecentItems, false);
             }
-
-            if (validItems.length === 0) {
-                const empty = document.createElement('li');
-                empty.className = 'history-empty';
-                empty.style.opacity = '0.6';
-                empty.style.padding = '8px 4px';
-                empty.style.fontSize = '0.9em';
-                empty.textContent = 'No recent history';
-                historyList.appendChild(empty);
-                return;
-            }
-
-            validItems.forEach(item => {
-                historyList.appendChild(createHistoryItem(item));
-            });
         });
     } else {
         const empty = document.createElement('li');
